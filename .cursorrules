@@ -1,0 +1,238 @@
+# AgentsCouncil Project Rules
+
+You are an expert AI coding assistant working on AgentsCouncil, a multi-platform AI debate system where configurable AI agents (OpenAI, Anthropic, Gemini) discuss topics, vote through rounds, and reach consensus.
+
+## Project Architecture
+
+```
+AgentsCouncil/
+├── backend/          # Python FastAPI server (port 8000)
+│   ├── app/
+│   │   ├── api/      # REST endpoints and WebSocket handlers
+│   │   ├── core/     # Debate engine and business logic
+│   │   ├── providers/# AI provider integrations (OpenAI, Anthropic, Gemini)
+│   │   ├── models.py # Pydantic data models
+│   │   ├── storage.py# In-memory data storage
+│   │   └── config.py # Settings and environment variables
+│   └── tests/        # pytest test suite
+├── frontend/         # Flutter app (macOS first, cross-platform)
+│   └── lib/
+│       ├── features/ # Feature modules (council, debate, settings)
+│       ├── models/   # Dart data models
+│       ├── services/ # API client and WebSocket service
+│       └── shared/   # Common widgets, themes, utilities
+└── docs/             # Documentation
+```
+
+## Tech Stack
+
+### Backend
+- **Python 3.11+** with type hints everywhere
+- **FastAPI** for REST API and WebSocket
+- **Pydantic v2** for data validation and serialization
+- **asyncio** for concurrent AI provider calls
+- **pytest + pytest-asyncio** for testing
+- **ruff** for linting, **black** for formatting
+
+### Frontend
+- **Flutter 3.x** with Dart
+- **Riverpod** for state management
+- **Dio** for HTTP requests
+- **web_socket_channel** for real-time updates
+- **Material Design 3** with custom theming
+
+## Code Style Guidelines
+
+### Python Backend
+
+```python
+# Always use type hints
+async def generate_response(
+    agent: AgentConfig,
+    context: list[str],
+    topic: str,
+) -> AgentResponse:
+    """Generate an agent's response to the debate topic.
+    
+    Args:
+        agent: The agent configuration with provider and role.
+        context: Previous responses in the debate.
+        topic: The debate topic.
+        
+    Returns:
+        The agent's response with content and vote.
+        
+    Raises:
+        ProviderError: If the AI provider call fails.
+    """
+    ...
+
+# Use async context managers for resources
+async with httpx.AsyncClient() as client:
+    response = await client.post(url, json=data)
+
+# Prefer explicit error handling
+try:
+    result = await provider.generate(prompt)
+except ProviderError as e:
+    logger.error(f"Provider {provider.name} failed: {e}")
+    raise
+
+# Use Pydantic models for all data structures
+class AgentConfig(BaseModel):
+    id: UUID = Field(default_factory=uuid4)
+    name: str
+    provider: ProviderType
+    role: RoleType
+    custom_prompt: Optional[str] = None
+```
+
+### Flutter Frontend
+
+```dart
+// Use const constructors where possible
+const SizedBox(height: 16);
+
+// Prefer final for immutable state
+final councilName = council.name;
+
+// Use Riverpod providers for state
+@riverpod
+class CouncilNotifier extends _$CouncilNotifier {
+  @override
+  FutureOr<List<Council>> build() async {
+    return await ref.read(apiServiceProvider).getCouncils();
+  }
+}
+
+// Organize imports: dart, flutter, packages, project
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/council.dart';
+
+// Use descriptive widget names matching their purpose
+class CouncilListTile extends ConsumerWidget { ... }
+class DebateProgressIndicator extends StatelessWidget { ... }
+```
+
+## AI Provider Integration Patterns
+
+### Provider Pattern
+All AI providers implement a common interface:
+
+```python
+class BaseProvider(ABC):
+    @abstractmethod
+    async def generate(
+        self, 
+        prompt: str, 
+        system_prompt: str,
+        **kwargs
+    ) -> str:
+        """Generate a response from the AI provider."""
+        pass
+```
+
+### Error Handling for AI Calls
+```python
+# Always wrap provider calls with retry logic
+async def call_with_retry(
+    provider: BaseProvider,
+    prompt: str,
+    max_retries: int = 3,
+) -> str:
+    for attempt in range(max_retries):
+        try:
+            return await provider.generate(prompt)
+        except RateLimitError:
+            await asyncio.sleep(2 ** attempt)
+        except ProviderError:
+            if attempt == max_retries - 1:
+                raise
+```
+
+## Testing Guidelines
+
+### Backend Tests
+```python
+# Use pytest fixtures for common setup
+@pytest.fixture
+def mock_provider():
+    provider = AsyncMock(spec=BaseProvider)
+    provider.generate.return_value = "Test response"
+    return provider
+
+# Test async code properly
+@pytest.mark.asyncio
+async def test_debate_round(mock_provider):
+    engine = DebateEngine(provider=mock_provider)
+    result = await engine.run_round(topic="Test topic")
+    assert result.responses
+
+# Mock external AI calls, don't make real API calls in tests
+```
+
+### Frontend Tests
+```dart
+// Test widgets with Riverpod overrides
+testWidgets('council list displays councils', (tester) async {
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        councilListProvider.overrideWith(() => MockCouncilNotifier()),
+      ],
+      child: const MaterialApp(home: CouncilListScreen()),
+    ),
+  );
+});
+```
+
+## Common Patterns
+
+### WebSocket Updates
+Real-time debate updates flow through WebSocket:
+1. Client connects to `/ws/debate/{debate_id}`
+2. Server pushes `DebateUpdate` messages for each event
+3. Frontend updates UI reactively via Riverpod
+
+### State Management
+- **Backend**: In-memory storage with `councils` and `debates` dicts
+- **Frontend**: Riverpod providers with async notifiers
+
+### Error States
+Always handle and display errors gracefully:
+- Show user-friendly error messages
+- Log detailed errors for debugging
+- Provide retry options where appropriate
+
+## File Naming Conventions
+
+| Type | Pattern | Example |
+|------|---------|---------|
+| Python module | snake_case | `debate_engine.py` |
+| Python class | PascalCase | `DebateEngine` |
+| Dart file | snake_case | `council_screen.dart` |
+| Dart class | PascalCase | `CouncilScreen` |
+| Test file | `test_*.py` / `*_test.dart` | `test_api.py`, `council_test.dart` |
+
+## Do's and Don'ts
+
+### Do
+- ✅ Use type hints for all function signatures
+- ✅ Write docstrings for public functions and classes
+- ✅ Handle errors explicitly with try/except
+- ✅ Use async/await for I/O operations
+- ✅ Keep functions focused and under 50 lines
+- ✅ Use Pydantic models for API request/response
+- ✅ Test edge cases and error conditions
+- ✅ Use const constructors in Flutter
+
+### Don't
+- ❌ Make real API calls in tests (mock them)
+- ❌ Use `print()` for logging (use proper logger)
+- ❌ Ignore type errors or use `# type: ignore` without explanation
+- ❌ Store secrets in code (use .env files)
+- ❌ Use setState in Riverpod widgets
+- ❌ Create god classes with too many responsibilities
+- ❌ Skip error handling for AI provider calls

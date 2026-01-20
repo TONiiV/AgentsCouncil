@@ -1,0 +1,67 @@
+{
+  "councils": [
+    {
+      "id": "866d0e35-1883-4cc5-8fb8-b330a53194f5",
+      "name": "test",
+      "agents": [
+        {
+          "id": "c96ff0f9-8327-439e-8ddb-3ac91e3bf91b",
+          "name": "a",
+          "provider": "gemini",
+          "role": "investment_advisor",
+          "custom_prompt": null,
+          "model": null
+        },
+        {
+          "id": "a06c518a-8275-400d-ae5a-8b3113009c08",
+          "name": "b",
+          "provider": "gemini",
+          "role": "politics_expert",
+          "custom_prompt": null,
+          "model": null
+        },
+        {
+          "id": "aae65ce5-aeec-4be3-87bc-9b2a57a053f5",
+          "name": "c",
+          "provider": "gemini",
+          "role": "tech_strategist",
+          "custom_prompt": null,
+          "model": null
+        }
+      ],
+      "max_rounds": 2,
+      "consensus_threshold": 0.75,
+      "created_at": "2026-01-20T22:30:27.491602"
+    }
+  ],
+  "debates": [
+    {
+      "id": "41c04c99-dcd2-48aa-b5e1-e6edd0accdbd",
+      "council_id": "866d0e35-1883-4cc5-8fb8-b330a53194f5",
+      "topic": "is now a good time to invest in us stock market",
+      "status": "cancelled",
+      "rounds": [],
+      "current_round": 0,
+      "summary": null,
+      "pro_points": [],
+      "against_points": [],
+      "error_message": null,
+      "created_at": "2026-01-20T22:30:54.699886",
+      "completed_at": null
+    },
+    {
+      "id": "3839ecc0-b12d-40c2-aa45-a650beb20744",
+      "council_id": "866d0e35-1883-4cc5-8fb8-b330a53194f5",
+      "topic": "is now a good time to invest in us stock nasdaq",
+      "status": "in_progress",
+      "rounds": [],
+      "current_round": 0,
+      "summary": null,
+      "pro_points": [],
+      "against_points": [],
+      "error_message": null,
+      "created_at": "2026-01-20T22:40:35.068078",
+      "completed_at": null
+    }
+  ]
+}
