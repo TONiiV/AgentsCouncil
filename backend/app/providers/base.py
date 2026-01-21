@@ -2,9 +2,9 @@
 AgentsCouncil Backend - AI Provider Abstraction Layer
 """
 from abc import ABC, abstractmethod
-from typing import AsyncIterator, Optional
+from collections.abc import AsyncIterator
 
-from app.models import AgentConfig, RoleType, ROLE_PROMPTS
+from app.models import ROLE_PROMPTS, AgentConfig, RoleType
 
 
 class BaseProvider(ABC):
@@ -30,7 +30,7 @@ class BaseProvider(ABC):
         self,
         system_prompt: str,
         user_message: str,
-        model: Optional[str] = None,
+        model: str | None = None,
         max_tokens: int = 1024,
     ) -> str:
         """Generate a response from the AI model."""
@@ -41,10 +41,15 @@ class BaseProvider(ABC):
         self,
         system_prompt: str,
         user_message: str,
-        model: Optional[str] = None,
+        model: str | None = None,
         max_tokens: int = 1024,
     ) -> AsyncIterator[str]:
         """Stream a response from the AI model."""
+        pass
+
+    @abstractmethod
+    async def list_models(self) -> list[str]:
+        """List available models for this provider."""
         pass
 
     def get_system_prompt(self, agent: AgentConfig) -> str:

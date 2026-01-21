@@ -5,10 +5,11 @@ from typing import Optional
 
 from app.config import get_settings
 from app.models import ProviderType
-from app.providers.base import BaseProvider
-from app.providers.openai_provider import OpenAIProvider
 from app.providers.anthropic_provider import AnthropicProvider
+from app.providers.base import BaseProvider
 from app.providers.gemini_provider import GeminiProvider
+from app.providers.ollama_provider import OllamaProvider
+from app.providers.openai_provider import OpenAIProvider
 
 
 class ProviderRegistry:
@@ -30,8 +31,14 @@ class ProviderRegistry:
         if settings.gemini_api_key:
             cls._providers[ProviderType.GEMINI] = GeminiProvider(settings.gemini_api_key)
 
+        if settings.ollama_base_url:
+            cls._providers[ProviderType.OLLAMA] = OllamaProvider(
+                base_url=settings.ollama_base_url,
+                api_key=settings.ollama_api_key,
+            )
+
     @classmethod
-    def get(cls, provider_type: ProviderType) -> Optional[BaseProvider]:
+    def get(cls, provider_type: ProviderType) -> BaseProvider | None:
         """Get a provider instance by type."""
         return cls._providers.get(provider_type)
 

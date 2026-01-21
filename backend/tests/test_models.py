@@ -1,17 +1,16 @@
 """
 Tests for Pydantic Models
 """
-import pytest
 from datetime import datetime
 from uuid import uuid4
 
+import pytest
 from pydantic import ValidationError
 
 from app.models import (
+    ROLE_PROMPTS,
     AgentConfig,
-    AgentResponse,
     CouncilConfig,
-    CouncilCreate,
     Debate,
     DebateCreate,
     DebateRound,
@@ -20,7 +19,6 @@ from app.models import (
     ProviderType,
     RoleType,
     VoteType,
-    ROLE_PROMPTS,
 )
 
 

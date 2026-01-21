@@ -3,7 +3,6 @@ AgentsCouncil Backend - Moderator Service
 
 Responsible for generating final summaries and extracting key points.
 """
-from typing import Optional
 
 from app.models import CouncilConfig, Debate, ProviderType
 from app.providers import ProviderRegistry
@@ -12,14 +11,15 @@ from app.providers import ProviderRegistry
 class ModeratorService:
     """Service for moderating debates and generating summaries."""
 
-    def __init__(self, preferred_provider: Optional[ProviderType] = None):
-        """Initialize with preferred provider for moderation tasks."""
+    def __init__(self, preferred_provider: ProviderType | None = None, model: str | None = None):
+        """Initialize with preferred provider and model for moderation tasks."""
         self.provider = None
-        
+        self.model = model
+
         # Try to get preferred provider, fallback to any available
         if preferred_provider:
             self.provider = ProviderRegistry.get(preferred_provider)
-        
+
         if not self.provider:
             available = ProviderRegistry.get_available()
             if available:
@@ -61,6 +61,7 @@ Use bullet points and clear formatting. Be concise but comprehensive.
         summary = await self.provider.generate(
             system_prompt=system_prompt,
             user_message=user_message,
+            model=self.model,
             max_tokens=2048,
         )
 
@@ -83,6 +84,7 @@ Debate content:
 
 Return ONLY a numbered list, one argument per line. Be concise (max 2 sentences each).
 """,
+            model=self.model,
             max_tokens=512,
         )
 
@@ -105,6 +107,7 @@ Debate content:
 
 Return ONLY a numbered list, one argument per line. Be concise (max 2 sentences each).
 """,
+            model=self.model,
             max_tokens=512,
         )
 

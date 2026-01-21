@@ -1,7 +1,7 @@
 """
 AgentsCouncil Backend - Anthropic Provider
 """
-from typing import AsyncIterator, Optional
+from collections.abc import AsyncIterator
 
 import anthropic
 
@@ -27,7 +27,7 @@ class AnthropicProvider(BaseProvider):
         self,
         system_prompt: str,
         user_message: str,
-        model: Optional[str] = None,
+        model: str | None = None,
         max_tokens: int = 1024,
     ) -> str:
         """Generate a response using Anthropic API."""
@@ -43,7 +43,7 @@ class AnthropicProvider(BaseProvider):
         self,
         system_prompt: str,
         user_message: str,
-        model: Optional[str] = None,
+        model: str | None = None,
         max_tokens: int = 1024,
     ) -> AsyncIterator[str]:
         """Stream a response using Anthropic API."""
@@ -55,3 +55,12 @@ class AnthropicProvider(BaseProvider):
         ) as stream:
             async for text in stream.text_stream:
                 yield text
+
+    async def list_models(self) -> list[str]:
+        """List available Claude models."""
+        return [
+            "claude-3-5-sonnet-20241022",
+            "claude-3-opus-20240229",
+            "claude-3-sonnet-20240229",
+            "claude-3-haiku-20240307",
+        ]

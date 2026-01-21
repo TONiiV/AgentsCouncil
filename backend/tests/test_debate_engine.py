@@ -1,22 +1,20 @@
 """
 Tests for Debate Engine
 """
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
+import pytest
+
+from app.core.debate_engine import DebateEngine
 from app.models import (
-    AgentConfig,
     AgentResponse,
-    CouncilConfig,
-    Debate,
     DebateRound,
     DebateStatus,
     ProviderType,
     RoleType,
     VoteType,
 )
-from app.core.debate_engine import DebateEngine
 
 
 class TestDebateEngineInit:
@@ -25,7 +23,7 @@ class TestDebateEngineInit:
     def test_create_engine(self, sample_council):
         """Test creating a debate engine."""
         engine = DebateEngine(sample_council, "Test topic")
-        
+
         assert engine.council == sample_council
         assert engine.topic == "Test topic"
         assert engine.debate is not None
@@ -46,9 +44,9 @@ class TestDebateEngineEvents:
         """Test registering an event callback."""
         engine = DebateEngine(sample_council, "Test topic")
         callback = MagicMock()
-        
+
         engine.on_event(callback)
-        
+
         assert callback in engine._event_callbacks
 
     @pytest.mark.asyncio
@@ -57,12 +55,12 @@ class TestDebateEngineEvents:
         engine = DebateEngine(sample_council, "Test topic")
         callback1 = MagicMock()
         callback2 = MagicMock()
-        
+
         engine.on_event(callback1)
         engine.on_event(callback2)
-        
+
         await engine._emit_event("test_event", {"key": "value"})
-        
+
         assert callback1.call_count == 1
         assert callback2.call_count == 1
 
@@ -71,11 +69,11 @@ class TestDebateEngineEvents:
         """Test emitting events with async callbacks."""
         engine = DebateEngine(sample_council, "Test topic")
         async_callback = AsyncMock()
-        
+
         engine.on_event(async_callback)
-        
+
         await engine._emit_event("test_event", {"key": "value"})
-        
+
         async_callback.assert_called_once()
 
 
@@ -85,15 +83,15 @@ class TestDebateEngineVoting:
     def test_calculate_vote_summary(self, sample_council):
         """Test calculating vote summary."""
         engine = DebateEngine(sample_council, "Test topic")
-        
+
         votes = {
             "agent1": VoteType.AGREE,
             "agent2": VoteType.AGREE,
             "agent3": VoteType.DISAGREE,
         }
-        
+
         summary = engine._calculate_vote_summary(votes)
-        
+
         assert summary["agree"] == 2
         assert summary["disagree"] == 1
         assert summary["abstain"] == 0
@@ -101,15 +99,15 @@ class TestDebateEngineVoting:
     def test_calculate_vote_summary_with_abstain(self, sample_council):
         """Test calculating vote summary with abstain votes."""
         engine = DebateEngine(sample_council, "Test topic")
-        
+
         votes = {
             "agent1": VoteType.AGREE,
             "agent2": VoteType.ABSTAIN,
             "agent3": VoteType.ABSTAIN,
         }
-        
+
         summary = engine._calculate_vote_summary(votes)
-        
+
         assert summary["agree"] == 1
         assert summary["disagree"] == 0
         assert summary["abstain"] == 2
@@ -117,26 +115,26 @@ class TestDebateEngineVoting:
     def test_check_consensus_reached(self, sample_council):
         """Test consensus is reached when threshold is met."""
         engine = DebateEngine(sample_council, "Test topic")
-        
+
         # 80% threshold (from sample_council)
         vote_summary = {"agree": 4, "disagree": 1, "abstain": 0}
-        
+
         assert engine._check_consensus(vote_summary) is True
 
     def test_check_consensus_not_reached(self, sample_council):
         """Test consensus is not reached below threshold."""
         engine = DebateEngine(sample_council, "Test topic")
-        
+
         vote_summary = {"agree": 1, "disagree": 1, "abstain": 0}
-        
+
         assert engine._check_consensus(vote_summary) is False
 
     def test_check_consensus_empty_votes(self, sample_council):
         """Test consensus calculation with no votes."""
         engine = DebateEngine(sample_council, "Test topic")
-        
+
         vote_summary = {"agree": 0, "disagree": 0, "abstain": 0}
-        
+
         assert engine._check_consensus(vote_summary) is False
 
 
@@ -146,16 +144,16 @@ class TestDebateEngineContext:
     def test_build_round_context_first_round(self, sample_council):
         """Test context building for first round."""
         engine = DebateEngine(sample_council, "Test topic")
-        
+
         context = engine._build_round_context(1)
-        
+
         assert "first round" in context.lower()
         assert "Test topic" in context
 
     def test_build_round_context_with_previous_rounds(self, sample_council):
         """Test context building includes previous rounds."""
         engine = DebateEngine(sample_council, "Test topic")
-        
+
         # Add a previous round
         round1 = DebateRound(
             round_number=1,
@@ -171,9 +169,9 @@ class TestDebateEngineContext:
             vote_summary={"agree": 1, "disagree": 0, "abstain": 0},
         )
         engine.debate.rounds.append(round1)
-        
+
         context = engine._build_round_context(2)
-        
+
         assert "Round 1" in context
         assert "Agent 1" in context
         assert "This is agent 1's response" in context
@@ -187,15 +185,15 @@ class TestDebateEngineRun:
         """Test running a complete debate with mocked provider."""
         with patch('app.core.debate_engine.ProviderRegistry') as mock_registry:
             mock_registry.get.return_value = mock_provider
-            
+
             engine = DebateEngine(sample_council, "Test topic")
-            
+
             # Mock provider generate to return vote-like response
             mock_provider.generate = AsyncMock(
                 side_effect=[
                     # Agent 1 response
                     "This is my perspective on the topic.",
-                    # Agent 2 response  
+                    # Agent 2 response
                     "I have a different view on this.",
                     # Agent 1 vote
                     "VOTE: AGREE\nREASONING: I agree with the consensus.",
@@ -203,12 +201,12 @@ class TestDebateEngineRun:
                     "VOTE: AGREE\nREASONING: I also agree.",
                 ]
             )
-            
+
             with patch.object(engine, '_generate_summary', new_callable=AsyncMock) as mock_summary:
                 mock_summary.return_value = "# Summary\nTest summary"
-                
+
                 result = await engine.run()
-                
+
                 assert result.status in [
                     DebateStatus.CONSENSUS_REACHED,
                     DebateStatus.ROUND_LIMIT_REACHED,
@@ -220,9 +218,9 @@ class TestDebateEngineRun:
         """Test that running a round collects all agent responses."""
         with patch('app.core.debate_engine.ProviderRegistry') as mock_registry:
             mock_registry.get.return_value = mock_provider
-            
+
             engine = DebateEngine(sample_council, "Test topic")
-            
+
             mock_provider.generate = AsyncMock(
                 side_effect=[
                     "Response 1",
@@ -231,9 +229,9 @@ class TestDebateEngineRun:
                     "VOTE: AGREE\nREASONING: Reason 2",
                 ]
             )
-            
+
             round_result = await engine._run_round(1)
-            
+
             # Should have responses from both agents
             assert len(round_result.responses) == 2
 
@@ -242,12 +240,13 @@ class TestDebateEngineRun:
         """Test error handling when provider is unavailable."""
         with patch('app.core.debate_engine.ProviderRegistry') as mock_registry:
             mock_registry.get.return_value = None
-            
+
             engine = DebateEngine(sample_council, "Test topic")
             agent = sample_council.agents[0]
-            
+
             with pytest.raises(ValueError, match="not available"):
-                await engine._get_agent_response(agent, "context", 1)
+                await engine._stream_and_collect_response(agent, "context", 1)
+
 
 
 class TestVoteParsingLogic:
@@ -261,7 +260,7 @@ class TestVoteParsingLogic:
             mock_provider.generate = AsyncMock(
                 return_value="VOTE: AGREE\nREASONING: I fully support this proposal."
             )
-            
+
             engine = DebateEngine(sample_council, "Test topic")
             agent = sample_council.agents[0]
             responses = [
@@ -273,9 +272,9 @@ class TestVoteParsingLogic:
                     content="Test content",
                 )
             ]
-            
+
             result = await engine._get_agent_vote(agent, responses)
-            
+
             assert result.vote == VoteType.AGREE
             assert "fully support" in result.reasoning
 
@@ -288,16 +287,16 @@ class TestVoteParsingLogic:
             return_value="VOTE: DISAGREE\nREASONING: I have concerns."
         )
         fresh_mock_provider.get_system_prompt = MagicMock(return_value="You are a test assistant.")
-        
+
         with patch('app.core.debate_engine.ProviderRegistry') as mock_registry:
             mock_registry.get.return_value = fresh_mock_provider
-            
+
             engine = DebateEngine(sample_council, "Test topic")
             agent = sample_council.agents[0]
             responses = []
-            
+
             result = await engine._get_agent_vote(agent, responses)
-            
+
             assert result.vote == VoteType.DISAGREE
 
     @pytest.mark.asyncio
@@ -308,11 +307,11 @@ class TestVoteParsingLogic:
             mock_provider.generate = AsyncMock(
                 return_value="I'm not sure how to vote on this."
             )
-            
+
             engine = DebateEngine(sample_council, "Test topic")
             agent = sample_council.agents[0]
             responses = []
-            
+
             result = await engine._get_agent_vote(agent, responses)
-            
+
             assert result.vote == VoteType.ABSTAIN

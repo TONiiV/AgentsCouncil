@@ -6,9 +6,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api import councils_router, debates_router, providers_router, websocket_router
 from app.config import get_settings
 from app.providers import ProviderRegistry
-from app.api import councils_router, debates_router, websocket_router
 
 
 @asynccontextmanager
@@ -17,16 +17,16 @@ async def lifespan(app: FastAPI):
     # Startup
     settings = get_settings()
     ProviderRegistry.initialize()
-    
+
     available = ProviderRegistry.get_available()
-    print(f"🤖 AgentsCouncil Backend starting...")
+    print("🤖 AgentsCouncil Backend starting...")
     print(f"📡 Available AI providers: {[p.value for p in available]}")
-    
+
     if not available:
         print("⚠️  Warning: No AI providers configured. Add API keys to .env file.")
-    
+
     yield
-    
+
     # Shutdown
     print("👋 AgentsCouncil Backend shutting down...")
 
@@ -50,6 +50,7 @@ app.add_middleware(
 # Include routers
 app.include_router(councils_router, prefix="/api")
 app.include_router(debates_router, prefix="/api")
+app.include_router(providers_router, prefix="/api/providers")
 app.include_router(websocket_router)
 
 

@@ -6,16 +6,14 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException
 
 from app.models import (
-    AgentConfig,
+    ROLE_PROMPTS,
     CouncilConfig,
     CouncilCreate,
     ProviderType,
     RoleType,
-    ROLE_PROMPTS,
 )
 from app.providers import ProviderRegistry
 from app.storage import Storage
-
 
 router = APIRouter(prefix="/councils", tags=["councils"])
 
@@ -28,6 +26,24 @@ async def list_available_providers() -> dict:
         "available": [p.value for p in available],
         "all": [p.value for p in ProviderType],
     }
+
+
+@router.get("/providers/{provider_type}/models")
+async def list_provider_models(provider_type: ProviderType) -> list[str]:
+    """List available models for a specific provider."""
+    provider = ProviderRegistry.get(provider_type)
+    if not provider:
+        raise HTTPException(
+            status_code=404, 
+            detail=f"Provider {provider_type.value} is not available."
+        )
+    
+    # Check if provider has list_models method (Ollama does)
+    if hasattr(provider, "list_models"):
+        return await provider.list_models()
+        
+    # Return default model for others (or empty list if unknown)
+    return [provider.default_model]
 
 
 @router.get("/roles")

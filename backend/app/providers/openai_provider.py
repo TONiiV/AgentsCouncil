@@ -1,7 +1,7 @@
 """
 AgentsCouncil Backend - OpenAI Provider
 """
-from typing import AsyncIterator, Optional
+from collections.abc import AsyncIterator
 
 from openai import AsyncOpenAI
 
@@ -27,7 +27,7 @@ class OpenAIProvider(BaseProvider):
         self,
         system_prompt: str,
         user_message: str,
-        model: Optional[str] = None,
+        model: str | None = None,
         max_tokens: int = 1024,
     ) -> str:
         """Generate a response using OpenAI API."""
@@ -45,7 +45,7 @@ class OpenAIProvider(BaseProvider):
         self,
         system_prompt: str,
         user_message: str,
-        model: Optional[str] = None,
+        model: str | None = None,
         max_tokens: int = 1024,
     ) -> AsyncIterator[str]:
         """Stream a response using OpenAI API."""
@@ -61,3 +61,11 @@ class OpenAIProvider(BaseProvider):
         async for chunk in stream:
             if chunk.choices[0].delta.content:
                 yield chunk.choices[0].delta.content
+
+    async def list_models(self) -> list[str]:
+        """List available OpenAI models."""
+        return [
+            "gpt-4o",
+            "gpt-4-turbo",
+            "gpt-3.5-turbo",
+        ]

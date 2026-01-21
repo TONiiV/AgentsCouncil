@@ -5,9 +5,8 @@ Core logic for managing multi-agent debates, rounds, and voting.
 """
 import asyncio
 import logging
+from collections.abc import Callable
 from datetime import datetime
-from typing import AsyncIterator, Callable, Optional
-from uuid import UUID
 
 from app.models import (
     AgentConfig,
@@ -56,35 +55,42 @@ class DebateEngine:
 
     async def run(self) -> Debate:
         """Run the complete debate until consensus or round limit."""
-        await self._emit_event("debate_start", {"topic": self.topic})
+        try:
+            await self._emit_event("debate_start", {"topic": self.topic})
 
-        while self.debate.current_round < self.council.max_rounds:
-            self.debate.current_round += 1
-            round_result = await self._run_round(self.debate.current_round)
-            self.debate.rounds.append(round_result)
+            while self.debate.current_round < self.council.max_rounds:
+                self.debate.current_round += 1
+                round_result = await self._run_round(self.debate.current_round)
+                self.debate.rounds.append(round_result)
 
-            if round_result.consensus_reached:
-                self.debate.status = DebateStatus.CONSENSUS_REACHED
-                break
+                if round_result.consensus_reached:
+                    self.debate.status = DebateStatus.CONSENSUS_REACHED
+                    break
 
-        if self.debate.status == DebateStatus.IN_PROGRESS:
-            self.debate.status = DebateStatus.ROUND_LIMIT_REACHED
+            if self.debate.status == DebateStatus.IN_PROGRESS:
+                self.debate.status = DebateStatus.ROUND_LIMIT_REACHED
 
-        # Generate final summary
-        self.debate.summary = await self._generate_summary()
-        self.debate.completed_at = datetime.utcnow()
+            # Generate final summary
+            self.debate.summary = await self._generate_summary()
+            self.debate.completed_at = datetime.utcnow()
 
-        await self._emit_event("debate_complete", {
-            "status": self.debate.status.value,
-            "summary": self.debate.summary,
-            "pro_points": self.debate.pro_points,
-            "against_points": self.debate.against_points,
-        })
+            await self._emit_event("debate_complete", {
+                "status": self.debate.status.value,
+                "summary": self.debate.summary,
+                "pro_points": self.debate.pro_points,
+                "against_points": self.debate.against_points,
+            })
 
-        return self.debate
+            return self.debate
+
+        except Exception as e:
+            logger.error(f"Debate execution failed: {e}")
+            self.debate.status = DebateStatus.ERROR
+            self.debate.error_message = str(e)
+            raise  # Re-raise to let caller handle logging/storage updates
 
     async def _run_round(self, round_number: int) -> DebateRound:
-        """Run a single debate round with all agents."""
+        """Run a single debate round with all agents in parallel."""
         await self._emit_event("round_start", {"round": round_number})
 
         round_result = DebateRound(round_number=round_number)
@@ -92,59 +98,51 @@ class DebateEngine:
         # Build context from previous rounds
         context = self._build_round_context(round_number)
 
-        # Get responses from all agents (with delays to avoid rate limits)
-        for i, agent in enumerate(self.council.agents):
-            # Add delay between API calls to avoid rate limiting
-            if i > 0:
-                await asyncio.sleep(4.0)  # 4.0s delay between agents
-            
-            # Emit thinking event
+        # Emit thinking events for all agents
+        for agent in self.council.agents:
             await self._emit_event("agent_thinking", {
                 "round": round_number,
                 "agent_id": str(agent.id),
                 "agent_name": agent.name,
             })
 
-            response = await self._get_agent_response(agent, context, round_number)
+        # Run ALL agents in parallel - streams will interleave naturally
+        response_tasks = [
+            self._stream_and_collect_response(agent, context, round_number)
+            for agent in self.council.agents
+        ]
+        responses = await asyncio.gather(*response_tasks, return_exceptions=True)
+
+        # Process results and emit completion events
+        for response in responses:
+            if isinstance(response, Exception):
+                logger.error(f"Agent response failed: {response}")
+                continue
             round_result.responses.append(response)
-
-            # Simulated streaming: split content and emit chunks
-            words = response.content.split(" ")
-            current_content = ""
-            for i, word in enumerate(words):
-                # Add space if not first word
-                if i > 0:
-                    word = " " + word
-                
-                chunk = word
-                current_content += chunk
-                
-                await self._emit_event("agent_response_chunk", {
-                    "round": round_number,
-                    "agent_id": str(response.agent_id),
-                    "agent_name": response.agent_name,
-                    "chunk": chunk,
-                    "full_content_so_far": current_content,
-                })
-                # Small delay to simulate typing
-                await asyncio.sleep(0.05)
-
             await self._emit_event("agent_response", {
                 "round": round_number,
                 "agent_id": str(response.agent_id),
                 "agent_name": response.agent_name,
+                "role": response.role.value,
+                "provider": response.provider.value,
                 "content": response.content,
             })
 
-        # Collect votes (with delays to avoid rate limits)
-        for i, agent in enumerate(self.council.agents):
-            # Add delay between API calls to avoid rate limiting
-            if i > 0:
-                await asyncio.sleep(4.0)  # 4.0s delay between agents
+        # Collect votes in parallel
+        vote_tasks = [
+            self._get_agent_vote(agent, round_result.responses)
+            for agent in self.council.agents
+        ]
+        vote_results = await asyncio.gather(*vote_tasks, return_exceptions=True)
+
+        # Process vote results
+        for agent, vote_response in zip(self.council.agents, vote_results):
+            if isinstance(vote_response, Exception):
+                logger.error(f"Vote from {agent.name} failed: {vote_response}")
+                continue
             
-            vote_response = await self._get_agent_vote(agent, round_result.responses)
             round_result.votes[str(agent.id)] = vote_response.vote
-            
+
             # Update response with vote info
             for resp in round_result.responses:
                 if resp.agent_id == agent.id:
@@ -170,6 +168,7 @@ class DebateEngine:
 
         return round_result
 
+
     def _build_round_context(self, current_round: int) -> str:
         """Build context string from previous rounds for agent reference."""
         if current_round == 1:
@@ -187,11 +186,11 @@ class DebateEngine:
 
         return "\n".join(context_parts)
 
-    async def _get_agent_response(
+    async def _stream_and_collect_response(
         self, agent: AgentConfig, context: str, round_number: int
     ) -> AgentResponse:
-        """Get a response from a single agent."""
-        logger.info(f"Getting response from {agent.name} ({agent.provider.value}) for round {round_number}")
+        """Stream response from agent and collect full content."""
+        logger.info(f"Streaming response from {agent.name} ({agent.provider.value}) for round {round_number}")
         provider = ProviderRegistry.get(agent.provider)
         if not provider:
             logger.error(f"Provider {agent.provider} not available for agent {agent.name}")
@@ -205,19 +204,44 @@ class DebateEngine:
 This is round {round_number}. Please provide your perspective, considering other viewpoints shared.
 Be concise but thorough. Focus on your area of expertise ({agent.role.value}).
 """
+        full_content = ""
+        
+        try:
+            # We use a timeout for the entire stream to prevent hanging
+            # But we also need to handle the stream iterator
+            async def consume_stream():
+                nonlocal full_content
+                async for chunk in provider.generate_stream(
+                    system_prompt=system_prompt,
+                    user_message=user_message,
+                    model=agent.model,
+                ):
+                    full_content += chunk
+                    await self._emit_event("agent_response_chunk", {
+                        "round": round_number,
+                        "agent_id": str(agent.id),
+                        "agent_name": agent.name,
+                        "role": agent.role.value,
+                        "provider": agent.provider.value,
+                        "chunk": chunk,
+                        "full_content_so_far": full_content,
+                    })
 
-        content = await provider.generate(
-            system_prompt=system_prompt,
-            user_message=user_message,
-            model=agent.model,
-        )
+            await asyncio.wait_for(consume_stream(), timeout=90.0)
+            
+        except TimeoutError:
+            logger.error(f"Timeout waiting for agent {agent.name}")
+            raise TimeoutError(f"Agent {agent.name} failed to respond in time")
+        except Exception as e:
+            logger.error(f"Error generating response from {agent.name}: {e}")
+            raise
 
         return AgentResponse(
             agent_id=agent.id,
             agent_name=agent.name,
             role=agent.role,
             provider=agent.provider,
-            content=content,
+            content=full_content,
         )
 
     async def _get_agent_vote(
@@ -253,12 +277,20 @@ Vote DISAGREE if you have significant concerns that need further discussion.
 Vote ABSTAIN if you're uncertain or need more information.
 """
 
-        response_text = await provider.generate(
-            system_prompt=system_prompt,
-            user_message=user_message,
-            model=agent.model,
-            max_tokens=256,
-        )
+        try:
+            # Add timeout for voting as well
+            response_text = await asyncio.wait_for(
+                provider.generate(
+                    system_prompt=system_prompt,
+                    user_message=user_message,
+                    model=agent.model,
+                    max_tokens=256,
+                ),
+                timeout=30.0  # 30 second timeout for voting
+            )
+        except TimeoutError:
+            logger.error(f"Timeout waiting for vote from {agent.name}")
+            raise TimeoutError(f"Agent {agent.name} failed to vote in time")
 
         # Parse vote from response
         vote = VoteType.ABSTAIN
@@ -303,12 +335,20 @@ Vote ABSTAIN if you're uncertain or need more information.
     async def _generate_summary(self) -> str:
         """Generate final moderator summary."""
         from app.core.moderator import ModeratorService
-        
-        moderator = ModeratorService()
+
+        # Prefer the provider and model of the first agent
+        preferred_provider = None
+        preferred_model = None
+        if self.council.agents:
+            preferred_provider = self.council.agents[0].provider
+            preferred_model = self.council.agents[0].model
+
+        moderator = ModeratorService(preferred_provider=preferred_provider, model=preferred_model)
         summary = await moderator.generate_summary(self.debate, self.council)
-        
+
         # Extract pro/against points
         self.debate.pro_points = await moderator.extract_pro_points(self.debate)
         self.debate.against_points = await moderator.extract_against_points(self.debate)
-        
+
         return summary
+

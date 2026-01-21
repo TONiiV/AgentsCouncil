@@ -2,14 +2,12 @@
 AgentsCouncil Backend - WebSocket Routes
 """
 import asyncio
-import json
 from uuid import UUID
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.models import DebateUpdate
 from app.storage import Storage
-
 
 router = APIRouter(tags=["websocket"])
 
@@ -72,7 +70,7 @@ async def debate_websocket(websocket: WebSocket, debate_id: UUID):
                 # Handle ping
                 if data == "ping":
                     await websocket.send_text("pong")
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # Send heartbeat
                 await websocket.send_text("heartbeat")
     except WebSocketDisconnect:

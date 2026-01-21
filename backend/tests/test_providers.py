@@ -1,15 +1,15 @@
 """
 Tests for AI Provider Implementations
 """
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.models import AgentConfig, ProviderType, RoleType, ROLE_PROMPTS
+import pytest
+
+from app.models import ROLE_PROMPTS, AgentConfig, ProviderType, RoleType
 from app.providers import ProviderRegistry
-from app.providers.base import BaseProvider
-from app.providers.openai_provider import OpenAIProvider
 from app.providers.anthropic_provider import AnthropicProvider
 from app.providers.gemini_provider import GeminiProvider
+from app.providers.openai_provider import OpenAIProvider
 
 
 class TestBaseProvider:
@@ -21,7 +21,7 @@ class TestBaseProvider:
         with patch.object(GeminiProvider, '__init__', lambda self, api_key: None):
             provider = GeminiProvider.__new__(GeminiProvider)
             provider.api_key = "test-key"
-            
+
             prompt = provider.get_system_prompt(sample_agent_gemini)
             assert prompt == ROLE_PROMPTS[RoleType.TECH_STRATEGIST]
 
@@ -33,11 +33,11 @@ class TestBaseProvider:
             role=RoleType.CUSTOM,
             custom_prompt="You are a specialized custom agent.",
         )
-        
+
         with patch.object(GeminiProvider, '__init__', lambda self, api_key: None):
             provider = GeminiProvider.__new__(GeminiProvider)
             provider.api_key = "test-key"
-            
+
             prompt = provider.get_system_prompt(custom_agent)
             assert prompt == "You are a specialized custom agent."
 
@@ -46,7 +46,7 @@ class TestBaseProvider:
         with patch.object(GeminiProvider, '__init__', lambda self, api_key: None):
             provider = GeminiProvider.__new__(GeminiProvider)
             provider.api_key = "test-key"
-            
+
             prompt = provider.get_system_prompt(sample_agent_devils_advocate)
             assert "challenge assumptions" in prompt.lower()
 
@@ -79,10 +79,10 @@ class TestProviderRegistry:
             anthropic_api_key=None,
             gemini_api_key=None,
         )
-        
+
         ProviderRegistry._providers.clear()
         ProviderRegistry.initialize()
-        
+
         assert ProviderRegistry.is_available(ProviderType.OPENAI)
         assert not ProviderRegistry.is_available(ProviderType.ANTHROPIC)
         assert not ProviderRegistry.is_available(ProviderType.GEMINI)
@@ -95,10 +95,10 @@ class TestProviderRegistry:
             anthropic_api_key="test-anthropic-key",
             gemini_api_key="test-gemini-key",
         )
-        
+
         ProviderRegistry._providers.clear()
         ProviderRegistry.initialize()
-        
+
         available = ProviderRegistry.get_available()
         assert ProviderType.OPENAI in available
         assert ProviderType.ANTHROPIC in available
@@ -121,18 +121,18 @@ class TestOpenAIProvider:
         with patch('app.providers.openai_provider.AsyncOpenAI') as mock_client_class:
             mock_client = MagicMock()
             mock_client_class.return_value = mock_client
-            
+
             # Mock the response
             mock_response = MagicMock()
             mock_response.choices = [MagicMock(message=MagicMock(content="Test response"))]
             mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
-            
+
             provider = OpenAIProvider("test-key")
             result = await provider.generate(
                 system_prompt="You are a test assistant.",
                 user_message="Hello!",
             )
-            
+
             assert result == "Test response"
             mock_client.chat.completions.create.assert_called_once()
 
@@ -153,18 +153,18 @@ class TestAnthropicProvider:
         with patch('app.providers.anthropic_provider.anthropic.AsyncAnthropic') as mock_client_class:
             mock_client = MagicMock()
             mock_client_class.return_value = mock_client
-            
+
             # Mock the response
             mock_response = MagicMock()
             mock_response.content = [MagicMock(text="Test response from Claude")]
             mock_client.messages.create = AsyncMock(return_value=mock_response)
-            
+
             provider = AnthropicProvider("test-key")
             result = await provider.generate(
                 system_prompt="You are a test assistant.",
                 user_message="Hello!",
             )
-            
+
             assert result == "Test response from Claude"
 
 
@@ -185,16 +185,16 @@ class TestGeminiProvider:
             with patch('app.providers.gemini_provider.genai.GenerativeModel') as mock_model_class:
                 mock_model = MagicMock()
                 mock_model_class.return_value = mock_model
-                
+
                 # Mock the response
                 mock_response = MagicMock()
                 mock_response.text = "Test response from Gemini"
                 mock_model.generate_content_async = AsyncMock(return_value=mock_response)
-                
+
                 provider = GeminiProvider("test-key")
                 result = await provider.generate(
                     system_prompt="You are a test assistant.",
                     user_message="Hello!",
                 )
-                
+
                 assert result == "Test response from Gemini"

@@ -1,8 +1,6 @@
 import json
 import logging
-import os
 from pathlib import Path
-from typing import Optional
 from uuid import UUID
 
 from app.models import CouncilConfig, Debate
@@ -35,9 +33,9 @@ class Storage:
 
         if STORAGE_FILE.exists():
             try:
-                with open(STORAGE_FILE, "r", encoding="utf-8") as f:
+                with open(STORAGE_FILE, encoding="utf-8") as f:
                     data = json.load(f)
-                    
+
                 # Parse Councils
                 for c_data in data.get("councils", []):
                     try:
@@ -50,14 +48,20 @@ class Storage:
                 for d_data in data.get("debates", []):
                     try:
                         debate = Debate(**d_data)
+                        # Fix stuck debates on startup
+                        if debate.status == "in_progress":
+                            logger.warning(f"Found stuck debate {debate.id}. Marking as ERROR.")
+                            debate.status = "error"
+                            debate.error_message = "Interrupted by server restart"
+
                         Storage._debates[debate.id] = debate
                     except Exception as e:
                         logger.error(f"Failed to load debate: {e}")
-                        
+
                 logger.info(f"Loaded {len(Storage._councils)} councils and {len(Storage._debates)} debates.")
             except Exception as e:
                 logger.error(f"Failed to load storage file: {e}")
-        
+
         Storage._loaded = True
 
     @staticmethod
@@ -65,12 +69,12 @@ class Storage:
         """Save current state to disk."""
         if not DATA_DIR.exists():
             DATA_DIR.mkdir(parents=True, exist_ok=True)
-            
+
         data = {
             "councils": [c.model_dump(mode='json') for c in Storage._councils.values()],
             "debates": [d.model_dump(mode='json') for d in Storage._debates.values()]
         }
-        
+
         try:
             # Atomic write pattern: write to temp file then rename
             temp_file = STORAGE_FILE.with_suffix(".tmp")
@@ -88,7 +92,7 @@ class Storage:
         return council
 
     @classmethod
-    def get_council(cls, council_id: UUID) -> Optional[CouncilConfig]:
+    def get_council(cls, council_id: UUID) -> CouncilConfig | None:
         cls._ensure_loaded()
         return cls._councils.get(council_id)
 
@@ -114,12 +118,22 @@ class Storage:
         return debate
 
     @classmethod
-    def get_debate(cls, debate_id: UUID) -> Optional[Debate]:
+    def get_debate(cls, debate_id: UUID) -> Debate | None:
         cls._ensure_loaded()
         return cls._debates.get(debate_id)
 
     @classmethod
-    def list_debates(cls, council_id: Optional[UUID] = None) -> list[Debate]:
+    def delete_debate(cls, debate_id: UUID) -> bool:
+        """Delete a debate from storage."""
+        cls._ensure_loaded()
+        if debate_id in cls._debates:
+            del cls._debates[debate_id]
+            cls._save()
+            return True
+        return False
+
+    @classmethod
+    def list_debates(cls, council_id: UUID | None = None) -> list[Debate]:
         cls._ensure_loaded()
         debates = list(cls._debates.values())
         if council_id:

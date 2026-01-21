@@ -3,11 +3,9 @@ AgentsCouncil Backend - Data Models
 """
 from datetime import datetime
 from enum import Enum
-from typing import Optional
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
-
 
 # === Enums ===
 
@@ -16,6 +14,7 @@ class ProviderType(str, Enum):
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
     GEMINI = "gemini"
+    OLLAMA = "ollama"
 
 
 class RoleType(str, Enum):
@@ -54,8 +53,8 @@ class AgentConfig(BaseModel):
     name: str
     provider: ProviderType
     role: RoleType
-    custom_prompt: Optional[str] = None  # Used when role is CUSTOM
-    model: Optional[str] = None  # Provider-specific model override
+    custom_prompt: str | None = None  # Used when role is CUSTOM
+    model: str | None = None  # Provider-specific model override
 
 
 class AgentResponse(BaseModel):
@@ -65,8 +64,8 @@ class AgentResponse(BaseModel):
     role: RoleType
     provider: ProviderType
     content: str
-    vote: Optional[VoteType] = None
-    reasoning: Optional[str] = None  # Why they voted this way
+    vote: VoteType | None = None
+    reasoning: str | None = None  # Why they voted this way
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -97,7 +96,7 @@ class DebateRound(BaseModel):
     round_number: int
     responses: list[AgentResponse] = []
     votes: dict[str, VoteType] = {}  # agent_id -> vote
-    vote_summary: Optional[dict[str, int]] = None  # {"agree": 2, "disagree": 1, ...}
+    vote_summary: dict[str, int] | None = None  # {"agree": 2, "disagree": 1, ...}
     consensus_reached: bool = False
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
@@ -110,12 +109,12 @@ class Debate(BaseModel):
     status: DebateStatus = DebateStatus.PENDING
     rounds: list[DebateRound] = []
     current_round: int = 0
-    summary: Optional[str] = None  # Moderator's final summary (Markdown)
+    summary: str | None = None  # Moderator's final summary (Markdown)
     pro_points: list[str] = []
     against_points: list[str] = []
-    error_message: Optional[str] = None  # Error details if debate failed
+    error_message: str | None = None  # Error details if debate failed
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
 
 
 class DebateCreate(BaseModel):

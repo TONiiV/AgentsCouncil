@@ -1,23 +1,22 @@
 """
 Tests for FastAPI REST Endpoints
 """
-import pytest
-from uuid import uuid4
 from unittest.mock import patch, MagicMock, AsyncMock
+from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
 from app.models import (
     AgentConfig,
     CouncilConfig,
-    Debate,
     DebateStatus,
     ProviderType,
     RoleType,
 )
-from app.storage import Storage
 from app.providers import ProviderRegistry
+from app.storage import Storage
 
 
 @pytest.fixture
@@ -98,7 +97,7 @@ class TestCouncilsAPI:
             "max_rounds": 3,
             "consensus_threshold": 0.75,
         }
-        
+
         response = client.post("/api/councils", json=council_data)
         assert response.status_code == 200
         data = response.json()
@@ -120,7 +119,7 @@ class TestCouncilsAPI:
                     },
                 ],
             }
-            
+
             response = client.post("/api/councils", json=council_data)
             assert response.status_code == 400
             assert "not configured" in response.json()["detail"]
@@ -128,7 +127,7 @@ class TestCouncilsAPI:
     def test_get_council(self, client, sample_council):
         """Test getting a specific council."""
         Storage.save_council(sample_council)
-        
+
         response = client.get(f"/api/councils/{sample_council.id}")
         assert response.status_code == 200
         data = response.json()
@@ -142,7 +141,7 @@ class TestCouncilsAPI:
     def test_delete_council(self, client, sample_council):
         """Test deleting a council."""
         Storage.save_council(sample_council)
-        
+
         response = client.delete(f"/api/councils/{sample_council.id}")
         assert response.status_code == 200
         assert response.json()["status"] == "deleted"
@@ -165,7 +164,7 @@ class TestDebatesAPI:
     def test_list_debates(self, client, sample_debate):
         """Test listing debates."""
         Storage.save_debate(sample_debate)
-        
+
         response = client.get("/api/debates")
         assert response.status_code == 200
         debates = response.json()
@@ -174,7 +173,7 @@ class TestDebatesAPI:
     def test_get_debate(self, client, sample_debate):
         """Test getting a specific debate."""
         Storage.save_debate(sample_debate)
-        
+
         response = client.get(f"/api/debates/{sample_debate.id}")
         assert response.status_code == 200
         data = response.json()
@@ -191,7 +190,7 @@ class TestDebatesAPI:
             "council_id": str(uuid4()),
             "topic": "Test topic",
         }
-        
+
         response = client.post("/api/debates", json=debate_data)
         assert response.status_code == 404
         assert "Council not found" in response.json()["detail"]
@@ -210,12 +209,12 @@ class TestDebatesAPI:
             ],
         )
         Storage.save_council(council)
-        
+
         debate_data = {
             "council_id": str(council.id),
             "topic": "Test topic",
         }
-        
+
         response = client.post("/api/debates", json=debate_data)
         assert response.status_code == 400
         assert "at least 2 agents" in response.json()["detail"]
@@ -223,11 +222,11 @@ class TestDebatesAPI:
     def test_cancel_debate(self, client, sample_debate):
         """Test cancelling a debate."""
         Storage.save_debate(sample_debate)
-        
+
         response = client.post(f"/api/debates/{sample_debate.id}/cancel")
         assert response.status_code == 200
         assert response.json()["status"] == "cancelled"
-        
+
         # Verify status was updated
         updated = Storage.get_debate(sample_debate.id)
         assert updated.status == DebateStatus.CANCELLED
@@ -241,7 +240,7 @@ class TestDebatesAPI:
         """Test getting summary of incomplete debate."""
         sample_debate.status = DebateStatus.IN_PROGRESS
         Storage.save_debate(sample_debate)
-        
+
         response = client.get(f"/api/debates/{sample_debate.id}/summary")
         assert response.status_code == 400
         assert "not complete" in response.json()["detail"]
@@ -249,7 +248,7 @@ class TestDebatesAPI:
     def test_get_debate_summary_complete(self, client, completed_debate):
         """Test getting summary of completed debate."""
         Storage.save_debate(completed_debate)
-        
+
         response = client.get(f"/api/debates/{completed_debate.id}/summary")
         assert response.status_code == 200
         data = response.json()
@@ -262,9 +261,31 @@ class TestDebatesAPI:
         sample_debate.status = DebateStatus.ERROR
         sample_debate.error_message = "Test error: API call failed"
         Storage.save_debate(sample_debate)
-        
+
         response = client.get(f"/api/debates/{sample_debate.id}")
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "error"
         assert data["error_message"] == "Test error: API call failed"
+
+class TestProvidersAPI:
+    """Tests for provider endpoints."""
+
+    def test_list_provider_models(self, client):
+        """Test listing models for a provider."""
+        # We need to mock the ProviderRegistry to return a mock provider with list_models
+        from app.providers import ProviderRegistry
+        from app.models import ProviderType
+        
+        mock_provider = MagicMock()
+        mock_provider.list_models = AsyncMock(return_value=["model1", "model2"])
+        
+        with patch.object(ProviderRegistry, 'get', return_value=mock_provider), \
+             patch.object(ProviderRegistry, 'is_available', return_value=True):
+            
+            response = client.get(f"/api/providers/{ProviderType.GEMINI.value}/models")
+            assert response.status_code == 200
+            data = response.json()
+            assert "models" in data
+            models = data["models"]
+            assert "model1" in models

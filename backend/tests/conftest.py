@@ -1,9 +1,8 @@
 """
 Pytest Configuration and Shared Fixtures
 """
-import asyncio
-from typing import AsyncGenerator, Generator
-from unittest.mock import AsyncMock, MagicMock, patch
+from collections.abc import Generator
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest

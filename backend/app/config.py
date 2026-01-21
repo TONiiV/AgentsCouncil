@@ -2,7 +2,6 @@
 AgentsCouncil Backend - Configuration
 """
 from functools import lru_cache
-from typing import Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -22,9 +21,11 @@ class Settings(BaseSettings):
     debug: bool = False
 
     # AI Provider API Keys
-    openai_api_key: Optional[str] = None
-    anthropic_api_key: Optional[str] = None
-    gemini_api_key: Optional[str] = None
+    openai_api_key: str | None = None
+    anthropic_api_key: str | None = None
+    gemini_api_key: str | None = None
+    ollama_base_url: str = "http://127.0.0.1:11434/api"
+    ollama_api_key: str | None = None
 
     # Database
     database_url: str = "sqlite+aiosqlite:///./agentscouncil.db"
@@ -44,6 +45,8 @@ class Settings(BaseSettings):
             providers.append("anthropic")
         if self.gemini_api_key:
             providers.append("gemini")
+        if self.ollama_base_url:
+            providers.append("ollama")
         return providers
 
 
