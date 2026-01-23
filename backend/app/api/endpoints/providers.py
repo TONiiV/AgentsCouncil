@@ -2,13 +2,21 @@
 AgentsCouncil Backend - Provider Endpoints
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 
 from app.models import ProviderType
 from app.oauth_server import OAuthServer, get_oauth_server
 from app.providers import ProviderRegistry
 
 router = APIRouter(tags=["providers"])
+
+# Set up Jinja2 templates for OAuth callback HTML
+_templates_dir = Path(__file__).parent.parent.parent / "templates"
+templates = Jinja2Templates(directory=str(_templates_dir))
 
 
 @router.get("/{provider}/models")
@@ -52,12 +60,31 @@ async def google_oauth_login(server: OAuthServer = Depends(get_oauth_server)):
 
 @router.get("/google-oauth/callback")
 async def google_oauth_callback(
+    request: Request,
     code: str,
     state: str,
     server: OAuthServer = Depends(get_oauth_server),
 ):
+    accept = request.headers.get("accept", "")
+
     try:
         account = await server.handle_callback(code, state)
     except ValueError as exc:
+        if "text/html" in accept:
+            return templates.TemplateResponse(
+                request,
+                "oauth_callback.html",
+                {"error": str(exc)},
+            )
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    # Return HTML for browser requests (popup flow)
+    if "text/html" in accept:
+        return templates.TemplateResponse(
+            request,
+            "oauth_callback.html",
+            {"email": account.get("email", ""), "error": None},
+        )
+
+    # Return JSON for API requests (backward compatible)
     return {"status": "stored", "account": account}

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OAuth Complete</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            background: #1a1a2e;
+            color: #00ffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            text-align: center;
+            padding: 40px;
+            background: rgba(0,255,255,0.1);
+            border-radius: 16px;
+            border: 1px solid rgba(0,255,255,0.3);
+        }
+        .success { color: #00ff88; }
+        .error { color: #ff4444; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        {% if error %}
+        <h2 class="error">Authentication Failed</h2>
+        <p>{{ error }}</p>
+        {% else %}
+        <h2 class="success">Authentication Successful!</h2>
+        <p>Welcome, {{ email }}</p>
+        <p>This window will close automatically...</p>
+        {% endif %}
+    </div>
+    <script>
+        (function() {
+            const data = {
+                type: 'oauth_callback',
+                success: {{ 'true' if not error else 'false' }},
+                {% if not error %}
+                email: '{{ email }}',
+                {% endif %}
+                {% if error %}
+                error: '{{ error }}',
+                {% endif %}
+            };
+            
+            if (window.opener) {
+                window.opener.postMessage(data, window.location.origin);
+                setTimeout(() => window.close(), 1500);
+            } else {
+                // Fallback: redirect to main app
+                window.location.href = '/?oauth_success={{ "true" if not error else "false" }}';
+            }
+        })();
+    </script>
+</body>
+</html>
