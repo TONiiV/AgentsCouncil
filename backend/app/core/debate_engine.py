@@ -146,7 +146,7 @@ class DebateEngine:
         vote_results = await asyncio.gather(*vote_tasks, return_exceptions=True)
 
         # Process vote results
-        for agent, vote_response in zip(self.council.agents, vote_results):
+        for agent, vote_response in zip(self.council.agents, vote_results, strict=True):
             if isinstance(vote_response, Exception):
                 logger.error(f"Vote from {agent.name} failed: {vote_response}")
                 continue
@@ -222,7 +222,6 @@ Be concise but thorough. Focus on your area of expertise ({agent.role.value}).
         full_content = ""
 
         try:
-            # Check if this is an investment advisor with Gemini - use tools
             if agent.role == RoleType.INVESTMENT_ADVISOR and hasattr(
                 provider, "generate_with_tools"
             ):
@@ -240,7 +239,6 @@ Be concise but thorough. Focus on your area of expertise ({agent.role.value}).
                     )
                     full_content = content
 
-                    # Emit tool call events for UI
                     for tc in tool_calls:
                         await self._emit_event(
                             "tool_call",
@@ -250,11 +248,10 @@ Be concise but thorough. Focus on your area of expertise ({agent.role.value}).
                                 "agent_name": agent.name,
                                 "tool_name": tc["name"],
                                 "tool_args": tc["args"],
-                                "tool_result": str(tc["result"])[:500],  # Truncate for UI
+                                "tool_result": str(tc["result"])[:500],
                             },
                         )
 
-                    # Emit the full response as a single chunk
                     await self._emit_event(
                         "agent_response_chunk",
                         {
@@ -270,7 +267,7 @@ Be concise but thorough. Focus on your area of expertise ({agent.role.value}).
 
                 await asyncio.wait_for(generate_with_tools(), timeout=120.0)
             else:
-                # Standard streaming for other agents
+
                 async def consume_stream():
                     nonlocal full_content
                     async for chunk in provider.generate_stream(

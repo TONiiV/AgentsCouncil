@@ -1,6 +1,7 @@
 """
 AgentsCouncil Backend - FastAPI Application
 """
+
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI

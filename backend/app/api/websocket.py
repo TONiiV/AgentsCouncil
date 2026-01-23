@@ -1,6 +1,7 @@
 """
 AgentsCouncil Backend - WebSocket Routes
 """
+
 import asyncio
 from uuid import UUID
 
@@ -10,6 +11,7 @@ from app.models import DebateUpdate
 from app.storage import Storage
 
 router = APIRouter(tags=["websocket"])
+
 
 # Connection manager for debate subscriptions
 class ConnectionManager:
@@ -54,10 +56,12 @@ async def debate_websocket(websocket: WebSocket, debate_id: UUID):
         # Send current state
         debate = Storage.get_debate(debate_id)
         if debate:
-            await websocket.send_json({
-                "event_type": "initial_state",
-                "data": debate.model_dump(mode="json"),
-            })
+            await websocket.send_json(
+                {
+                    "event_type": "initial_state",
+                    "data": debate.model_dump(mode="json"),
+                }
+            )
 
         # Keep connection alive and listen for messages
         while True:

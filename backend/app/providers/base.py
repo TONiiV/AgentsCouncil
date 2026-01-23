@@ -1,6 +1,7 @@
 """
 AgentsCouncil Backend - AI Provider Abstraction Layer
 """
+
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 

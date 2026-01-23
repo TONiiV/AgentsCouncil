@@ -75,12 +75,12 @@ class TestProviderRegistry:
     @patch("app.providers.get_settings")
     def test_initialize_with_openai_key(self, mock_settings):
         """Test initialization with OpenAI API key."""
-        settings_mock = MagicMock()
-        settings_mock.openai_api_key = "test-openai-key"
-        settings_mock.anthropic_api_key = None
-        settings_mock.gemini_api_key = None
-        settings_mock.ollama_base_url = None
-        mock_settings.return_value = settings_mock
+        mock_settings.return_value = MagicMock(
+            openai_api_key="test-openai-key",
+            anthropic_api_key=None,
+            gemini_api_key=None,
+            ollama_base_url="http://localhost:11434",
+        )
 
         ProviderRegistry._providers.clear()
         ProviderRegistry.initialize()
@@ -92,12 +92,12 @@ class TestProviderRegistry:
     @patch("app.providers.get_settings")
     def test_initialize_with_all_keys(self, mock_settings):
         """Test initialization with all API keys."""
-        settings_mock = MagicMock()
-        settings_mock.openai_api_key = "test-openai-key"
-        settings_mock.anthropic_api_key = "test-anthropic-key"
-        settings_mock.gemini_api_key = "test-gemini-key"
-        settings_mock.ollama_base_url = None
-        mock_settings.return_value = settings_mock
+        mock_settings.return_value = MagicMock(
+            openai_api_key="test-openai-key",
+            anthropic_api_key="test-anthropic-key",
+            gemini_api_key="test-gemini-key",
+            ollama_base_url="http://localhost:11434",
+        )
 
         ProviderRegistry._providers.clear()
         ProviderRegistry.initialize()
@@ -191,7 +191,6 @@ class TestGeminiProvider:
             mock_client_class.return_value = mock_client
             mock_client.aio = MagicMock()
 
-            # Mock the response
             mock_response = MagicMock()
             mock_response.text = "Test response from Gemini"
             mock_client.aio.models.generate_content = AsyncMock(return_value=mock_response)
@@ -212,8 +211,6 @@ class TestGeminiProvider:
             mock_client_class.return_value = mock_client
             mock_client.aio = MagicMock()
 
-            # Mock the responses for the loop
-            # 1. First call returns a function call
             mock_fc = MagicMock()
             mock_fc.name = "get_stock_quote"
             mock_fc.args = {"symbol": "AAPL"}
@@ -245,7 +242,6 @@ class TestGeminiProvider:
                 mock_execute.return_value = {"price": 150}
 
                 provider = GeminiProvider("test-key")
-                # Using a dummy tool declaration for test
                 text, calls = await provider.generate_with_tools(
                     system_prompt="Test", user_message="How is AAPL?", tools=[MagicMock()]
                 )

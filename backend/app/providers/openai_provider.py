@@ -1,6 +1,7 @@
 """
 AgentsCouncil Backend - OpenAI Provider
 """
+
 from collections.abc import AsyncIterator
 
 from openai import AsyncOpenAI

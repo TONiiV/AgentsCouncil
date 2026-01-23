@@ -1,6 +1,7 @@
 """
 AgentsCouncil Backend - Anthropic Provider
 """
+
 from collections.abc import AsyncIterator
 
 import anthropic

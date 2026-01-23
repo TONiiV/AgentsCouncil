@@ -138,7 +138,7 @@ class GeminiProvider(BaseProvider):
                 raise
 
         # All retries exhausted
-        logger.error(f"Stream retries exhausted due to rate limiting")
+        logger.error("Stream retries exhausted due to rate limiting")
         raise Exception("Stream failed after max retries")
 
     async def generate_with_tools(
