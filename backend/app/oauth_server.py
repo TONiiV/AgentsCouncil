@@ -16,6 +16,19 @@ from fastapi import Request
 
 from app.oauth_accounts import OAuthAccountStore
 
+ANTIGRAVITY_CLIENT_ID = (
+    "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com"
+)
+ANTIGRAVITY_CLIENT_SECRET = "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"
+ANTIGRAVITY_SCOPES = [
+    "https://www.googleapis.com/auth/cloud-platform",
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/userinfo.profile",
+    "https://www.googleapis.com/auth/cclog",
+    "https://www.googleapis.com/auth/experimentsandconfigs",
+]
+ANTIGRAVITY_SCOPE = " ".join(ANTIGRAVITY_SCOPES)
+
 
 def _code_challenge(verifier: str) -> str:
     digest = hashlib.sha256(verifier.encode("ascii")).digest()
@@ -116,12 +129,13 @@ class OAuthServer:
 
 
 def create_oauth_server() -> OAuthServer:
-    client_id = os.getenv("GOOGLE_OAUTH_CLIENT_ID", "client")
-    client_secret = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET", "secret")
+    client_id = os.getenv("GOOGLE_OAUTH_CLIENT_ID", ANTIGRAVITY_CLIENT_ID)
+    client_secret = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET", ANTIGRAVITY_CLIENT_SECRET)
     redirect_uri = os.getenv(
         "GOOGLE_OAUTH_REDIRECT_URI",
         "http://localhost:8000/api/providers/google-oauth/callback",
     )
+    scope = os.getenv("GOOGLE_OAUTH_SCOPE", ANTIGRAVITY_SCOPE)
     accounts_path = Path(
         os.getenv("GOOGLE_OAUTH_ACCOUNTS_PATH", "data/oauth_accounts.json")
     )
@@ -130,6 +144,7 @@ def create_oauth_server() -> OAuthServer:
         client_id=client_id,
         client_secret=client_secret,
         redirect_uri=redirect_uri,
+        scope=scope,
         account_store=store,
     )
 
