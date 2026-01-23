@@ -16,9 +16,7 @@ from fastapi import Request
 
 from app.oauth_accounts import OAuthAccountStore
 
-ANTIGRAVITY_CLIENT_ID = (
-    "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com"
-)
+ANTIGRAVITY_CLIENT_ID = "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com"
 ANTIGRAVITY_CLIENT_SECRET = "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"
 ANTIGRAVITY_SCOPES = [
     "https://www.googleapis.com/auth/cloud-platform",
@@ -97,6 +95,38 @@ class OAuthServer:
     async def close(self) -> None:
         await self._http_client.aclose()
 
+    async def refresh_access_token(self, refresh_token: str) -> str:
+        """Exchange refresh token for a new access token."""
+        response = await self._http_client.post(
+            self.token_url,
+            data={
+                "client_id": self.client_id,
+                "client_secret": self.client_secret,
+                "refresh_token": refresh_token,
+                "grant_type": "refresh_token",
+            },
+        )
+        response.raise_for_status()
+        data = response.json()
+        return data["access_token"]
+
+    async def get_valid_access_token(self, email: str | None = None) -> str:
+        """Get a valid access token, refreshing if necessary."""
+        accounts = self.account_store.load_accounts()
+        if not accounts:
+            raise ValueError("No OAuth accounts configured")
+
+        # Use first account or find by email
+        account = accounts[0]
+        if email:
+            account = next((a for a in accounts if a.get("email") == email), accounts[0])
+
+        refresh_token = account.get("refresh_token")
+        if not refresh_token:
+            raise ValueError("No refresh token available")
+
+        return await self.refresh_access_token(refresh_token)
+
     async def _exchange_code(self, code: str, code_verifier: str) -> dict:
         response = await self._http_client.post(
             self.token_url,
@@ -136,9 +166,7 @@ def create_oauth_server() -> OAuthServer:
         "http://localhost:8000/api/providers/google-oauth/callback",
     )
     scope = os.getenv("GOOGLE_OAUTH_SCOPE", ANTIGRAVITY_SCOPE)
-    accounts_path = Path(
-        os.getenv("GOOGLE_OAUTH_ACCOUNTS_PATH", "data/oauth_accounts.json")
-    )
+    accounts_path = Path(os.getenv("GOOGLE_OAUTH_ACCOUNTS_PATH", "data/oauth_accounts.json"))
     store = OAuthAccountStore(accounts_path)
     return OAuthServer(
         client_id=client_id,

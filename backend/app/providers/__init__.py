@@ -2,8 +2,10 @@
 AgentsCouncil Backend - Provider Registry
 """
 
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from app.config import get_settings
 from app.models import ProviderType
@@ -14,6 +16,23 @@ from app.providers.gemini_provider import GeminiProvider
 from app.providers.google_oauth_provider import GoogleOAuthProvider
 from app.providers.ollama_provider import OllamaProvider
 from app.providers.openai_provider import OpenAIProvider
+
+if TYPE_CHECKING:
+    from app.oauth_server import OAuthServer
+
+# Global reference to OAuth server instance for token refresh
+_oauth_server_instance: OAuthServer | None = None
+
+
+def get_oauth_server_instance() -> OAuthServer | None:
+    """Get the global OAuth server instance."""
+    return _oauth_server_instance
+
+
+def set_oauth_server_instance(server: OAuthServer) -> None:
+    """Set the global OAuth server instance."""
+    global _oauth_server_instance
+    _oauth_server_instance = server
 
 
 class ProviderRegistry:
@@ -46,8 +65,11 @@ class ProviderRegistry:
         if oauth_store.has_accounts():
 
             async def _token_getter() -> str:
-                # Placeholder - actual token refresh logic will be wired later
-                raise NotImplementedError("Token getter not yet implemented")
+                """Get a valid OAuth access token for Google API calls."""
+                server = get_oauth_server_instance()
+                if server is None:
+                    raise RuntimeError("OAuth server not initialized")
+                return await server.get_valid_access_token()
 
             cls._providers[ProviderType.GOOGLE_OAUTH] = GoogleOAuthProvider(
                 token_getter=_token_getter
