@@ -5,9 +5,23 @@ Tests for OAuth endpoints.
 from urllib.parse import parse_qs, urlparse
 from unittest.mock import AsyncMock
 
+import pytest
+import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
+
 from app.main import app
 from app.oauth_accounts import OAuthAccountStore
 from app.oauth_server import OAuthServer
+
+pytestmark = pytest.mark.asyncio
+
+
+@pytest_asyncio.fixture
+async def client():
+    """Create an async test client."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as c:
+        yield c
 
 
 def _set_oauth_server(server: OAuthServer) -> OAuthServer | None:
@@ -16,7 +30,7 @@ def _set_oauth_server(server: OAuthServer) -> OAuthServer | None:
     return previous
 
 
-def test_google_oauth_login_returns_url(client, tmp_path):
+async def test_google_oauth_login_returns_url(client, tmp_path):
     store = OAuthAccountStore(tmp_path / "accounts.json")
     server = OAuthServer(
         client_id="client",
@@ -27,7 +41,7 @@ def test_google_oauth_login_returns_url(client, tmp_path):
     previous = _set_oauth_server(server)
 
     try:
-        response = client.get("/api/providers/google-oauth/login")
+        response = await client.get("/api/providers/google-oauth/login")
     finally:
         if previous is None:
             delattr(app.state, "oauth_server")
@@ -42,7 +56,7 @@ def test_google_oauth_login_returns_url(client, tmp_path):
     assert "code_challenge_method=S256" in url
 
 
-def test_google_oauth_callback_stores_account(client, tmp_path):
+async def test_google_oauth_callback_stores_account(client, tmp_path):
     store = OAuthAccountStore(tmp_path / "accounts.json")
     server = OAuthServer(
         client_id="client",
@@ -61,11 +75,11 @@ def test_google_oauth_callback_stores_account(client, tmp_path):
     previous = _set_oauth_server(server)
 
     try:
-        login_response = client.get("/api/providers/google-oauth/login")
+        login_response = await client.get("/api/providers/google-oauth/login")
         login_url = login_response.json()["url"]
         query = parse_qs(urlparse(login_url).query)
         state = query["state"][0]
-        response = client.get(
+        response = await client.get(
             "/api/providers/google-oauth/callback",
             params={"code": "auth-code", "state": state},
         )
