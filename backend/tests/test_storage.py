@@ -4,12 +4,24 @@ Tests for Storage Module
 
 from uuid import uuid4
 
+import pytest
+
 from app.models import Debate, DebateStatus
 from app.storage import Storage
 
 
 class TestStorageCouncils:
     """Tests for council storage operations."""
+
+    @pytest.mark.asyncio
+    async def test_initialize_creates_database(self, tmp_path):
+        """Test initializing storage creates the database file."""
+        db_path = tmp_path / "agentscouncil.db"
+        Storage.configure(db_path)
+
+        await Storage.initialize()
+
+        assert db_path.exists()
 
     def test_save_council(self, sample_council):
         """Test saving a council."""

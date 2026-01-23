@@ -3,6 +3,7 @@ import logging
 from pathlib import Path
 from uuid import UUID
 
+from app import db
 from app.models import CouncilConfig, Debate
 
 # Setup basic logging
@@ -21,6 +22,17 @@ class Storage:
     _councils: dict[UUID, CouncilConfig] = {}
     _debates: dict[UUID, Debate] = {}
     _loaded: bool = False
+    _db_path: Path | None = None
+
+    @classmethod
+    def configure(cls, db_path: Path) -> None:
+        cls._db_path = db_path
+
+    @classmethod
+    async def initialize(cls) -> None:
+        if cls._db_path is None:
+            cls._db_path = DATA_DIR / "agentscouncil.db"
+        await db.init_db(cls._db_path)
 
     @staticmethod
     def _ensure_loaded():
