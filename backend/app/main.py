@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import councils_router, debates_router, providers_router, websocket_router
 from app.config import get_settings
+from app.oauth_server import create_oauth_server
 from app.providers import ProviderRegistry
 
 
@@ -17,6 +18,7 @@ async def lifespan(app: FastAPI):
     """Application lifespan handler."""
     # Startup
     settings = get_settings()
+    app.state.oauth_server = create_oauth_server()
     ProviderRegistry.initialize()
 
     available = ProviderRegistry.get_available()
@@ -29,6 +31,7 @@ async def lifespan(app: FastAPI):
     yield
 
     # Shutdown
+    await app.state.oauth_server.close()
     print("👋 AgentsCouncil Backend shutting down...")
 
 
