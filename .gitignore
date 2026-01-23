@@ -4,6 +4,9 @@
 .LSOverride
 ._*
 
+# Worktrees
+.worktrees/
+
 # IntelliJ / JetBrains
 .idea/
 *.iml
