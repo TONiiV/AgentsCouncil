@@ -81,19 +81,19 @@ async def create_council(council_data: CouncilCreate) -> CouncilConfig:
         max_rounds=council_data.max_rounds,
         consensus_threshold=council_data.consensus_threshold,
     )
-    return Storage.save_council(council)
+    return await Storage.save_council(council)
 
 
 @router.get("", response_model=list[CouncilConfig])
 async def list_councils() -> list[CouncilConfig]:
     """List all council configurations."""
-    return Storage.list_councils()
+    return await Storage.list_councils()
 
 
 @router.get("/{council_id}", response_model=CouncilConfig)
 async def get_council(council_id: UUID) -> CouncilConfig:
     """Get a specific council configuration."""
-    council = Storage.get_council(council_id)
+    council = await Storage.get_council(council_id)
     if not council:
         raise HTTPException(status_code=404, detail="Council not found")
     return council
@@ -102,7 +102,7 @@ async def get_council(council_id: UUID) -> CouncilConfig:
 @router.put("/{council_id}", response_model=CouncilConfig)
 async def update_council(council_id: UUID, council_data: CouncilCreate) -> CouncilConfig:
     """Update an existing council configuration."""
-    existing = Storage.get_council(council_id)
+    existing = await Storage.get_council(council_id)
     if not existing:
         raise HTTPException(status_code=404, detail="Council not found")
 
@@ -123,12 +123,12 @@ async def update_council(council_id: UUID, council_data: CouncilCreate) -> Counc
         consensus_threshold=council_data.consensus_threshold,
         created_at=existing.created_at,
     )
-    return Storage.save_council(updated_council)
+    return await Storage.save_council(updated_council)
 
 
 @router.delete("/{council_id}")
 async def delete_council(council_id: UUID) -> dict:
     """Delete a council configuration."""
-    if Storage.delete_council(council_id):
+    if await Storage.delete_council(council_id):
         return {"status": "deleted"}
     raise HTTPException(status_code=404, detail="Council not found")

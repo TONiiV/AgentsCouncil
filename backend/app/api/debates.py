@@ -30,17 +30,17 @@ async def _run_debate_task(debate_id: UUID, engine: DebateEngine) -> None:
     try:
         logger.info(f"Starting debate {debate_id} on topic: {engine.topic}")
         result = await engine.run()
-        Storage.save_debate(result)
+        await Storage.save_debate(result)
         logger.info(f"Debate {debate_id} completed with status: {result.status.value}")
     except Exception as e:
         error_msg = f"{type(e).__name__}: {e!s}"
         logger.error(f"Debate {debate_id} failed: {error_msg}")
         logger.error(f"Traceback: {traceback.format_exc()}")
-        debate = Storage.get_debate(debate_id)
+        debate = await Storage.get_debate(debate_id)
         if debate:
             debate.status = DebateStatus.ERROR
             debate.error_message = error_msg
-            Storage.save_debate(debate)
+            await Storage.save_debate(debate)
     finally:
         _running_debates.pop(debate_id, None)
 
@@ -52,7 +52,7 @@ async def start_debate(
 ) -> Debate:
     """Start a new debate on a topic."""
     # Get the council configuration
-    council = Storage.get_council(debate_data.council_id)
+    council = await Storage.get_council(debate_data.council_id)
     if not council:
         raise HTTPException(status_code=404, detail="Council not found")
 
@@ -66,7 +66,7 @@ async def start_debate(
     engine = DebateEngine(council, debate_data.topic)
 
     # Save initial debate state
-    Storage.save_debate(engine.debate)
+    await Storage.save_debate(engine.debate)
 
     # Start debate in background
     task = asyncio.create_task(_run_debate_task(engine.debate.id, engine))
@@ -78,13 +78,13 @@ async def start_debate(
 @router.get("", response_model=list[Debate])
 async def list_debates(council_id: UUID | None = None) -> list[Debate]:
     """List all debates, optionally filtered by council."""
-    return Storage.list_debates(council_id)
+    return await Storage.list_debates(council_id)
 
 
 @router.get("/{debate_id}", response_model=Debate)
 async def get_debate(debate_id: UUID) -> Debate:
     """Get a specific debate and its current state."""
-    debate = Storage.get_debate(debate_id)
+    debate = await Storage.get_debate(debate_id)
     if not debate:
         raise HTTPException(status_code=404, detail="Debate not found")
     return debate
@@ -93,7 +93,7 @@ async def get_debate(debate_id: UUID) -> Debate:
 @router.get("/{debate_id}/summary")
 async def get_debate_summary(debate_id: UUID) -> dict:
     """Get the summary and key points from a completed debate."""
-    debate = Storage.get_debate(debate_id)
+    debate = await Storage.get_debate(debate_id)
     if not debate:
         raise HTTPException(status_code=404, detail="Debate not found")
 
@@ -119,7 +119,7 @@ async def get_debate_summary(debate_id: UUID) -> dict:
 @router.post("/{debate_id}/cancel")
 async def cancel_debate(debate_id: UUID) -> dict:
     """Cancel a running debate."""
-    debate = Storage.get_debate(debate_id)
+    debate = await Storage.get_debate(debate_id)
     if not debate:
         raise HTTPException(status_code=404, detail="Debate not found")
 
@@ -128,14 +128,14 @@ async def cancel_debate(debate_id: UUID) -> dict:
         del _running_debates[debate_id]
 
     debate.status = DebateStatus.CANCELLED
-    Storage.save_debate(debate)
+    await Storage.save_debate(debate)
     return {"status": "cancelled"}
 
 
 @router.delete("/{debate_id}")
 async def delete_debate(debate_id: UUID) -> dict:
     """Delete a debate history."""
-    debate = Storage.get_debate(debate_id)
+    debate = await Storage.get_debate(debate_id)
     if not debate:
         raise HTTPException(status_code=404, detail="Debate not found")
 
@@ -144,7 +144,7 @@ async def delete_debate(debate_id: UUID) -> dict:
         _running_debates[debate_id].cancel()
         del _running_debates[debate_id]
 
-    if Storage.delete_debate(debate_id):
+    if await Storage.delete_debate(debate_id):
         return {"status": "deleted"}
 
     raise HTTPException(status_code=500, detail="Failed to delete debate")

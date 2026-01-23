@@ -3,6 +3,7 @@ AgentsCouncil Backend - FastAPI Application
 """
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import councils_router, debates_router, providers_router, websocket_router
 from app.config import get_settings
 from app.providers import ProviderRegistry
+from app.storage import Storage
 
 
 @asynccontextmanager
@@ -18,6 +20,8 @@ async def lifespan(app: FastAPI):
     # Startup
     settings = get_settings()
     ProviderRegistry.initialize()
+    Storage.configure(Path(settings.database_path))
+    await Storage.initialize()
 
     available = ProviderRegistry.get_available()
     print("🤖 AgentsCouncil Backend starting...")
