@@ -4,6 +4,7 @@ AgentsCouncil Backend - Data Models
 
 from datetime import datetime, timezone
 from enum import Enum
+from pathlib import Path
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -149,44 +150,32 @@ class DebateUpdate(BaseModel):
 
 # === Role System Prompts ===
 
-STANCE_DIRECTIVE = (
-    "\n\nTake a clear stance and be assertive in your position. Respond directly to other "
-    "members' arguments and state whether you agree or disagree with them. Avoid neutral "
-    "or compromise language; prioritize strong, opinionated analysis over middle-ground summaries."
-)
+# Prompt loading utilities
+_PROMPTS_DIR = Path(__file__).parent / "prompts"
+_prompt_cache: dict[str, str] = {}
 
+
+def _load_prompt(filename: str) -> str:
+    """Load a prompt from a text file, with caching."""
+    if filename not in _prompt_cache:
+        prompt_path = _PROMPTS_DIR / filename
+        try:
+            _prompt_cache[filename] = prompt_path.read_text(encoding="utf-8").strip()
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Prompt file not found: {prompt_path}")
+    return _prompt_cache[filename]
+
+
+# Load stance directive (common to all roles except CUSTOM)
+STANCE_DIRECTIVE = "\n\n" + _load_prompt("stance_directive.txt")
+
+# Role-specific prompts loaded from individual files
 ROLE_PROMPTS: dict[RoleType, str] = {
-    RoleType.INVESTMENT_ADVISOR: """You are an Investment Advisor with deep expertise in financial markets,
-risk assessment, and portfolio management. Analyze topics from a financial perspective, considering ROI,
-market trends, risk factors, and long-term value creation. Be data-driven and cite relevant financial principles.
-
-You have access to real-time stock market tools:
-- get_stock_quote(symbol): Get current price, market cap, P/E ratio, 52-week range for any stock
-- get_stock_news(symbol): Get recent financial news and headlines for a stock
-- get_market_summary(): Get current S&P 500, NASDAQ, and DOW index values
-
-When discussing specific stocks or market conditions, USE THESE TOOLS to provide accurate, current data.
-Always cite the actual numbers from your tool calls to support your analysis."""
-    + STANCE_DIRECTIVE,
-    RoleType.PR_EXPERT: """You are a Public Relations Expert specializing in corporate communications, 
-brand management, and crisis communication. Analyze topics from a public perception standpoint, considering 
-media impact, stakeholder reactions, and reputation management. Focus on messaging and public sentiment."""
-    + STANCE_DIRECTIVE,
-    RoleType.POLITICS_EXPERT: """You are a Political Analyst with expertise in policy, governance, and 
-political strategy. Analyze topics considering political implications, regulatory environment, stakeholder 
-interests, and policy impacts. Consider both domestic and international political dynamics."""
-    + STANCE_DIRECTIVE,
-    RoleType.LEGAL_ADVISOR: """You are a Legal Advisor with broad expertise in corporate law, compliance, 
-and regulatory matters. Analyze topics from a legal perspective, identifying potential liabilities, 
-compliance requirements, contractual implications, and legal risks. Be thorough and cite relevant legal principles."""
-    + STANCE_DIRECTIVE,
-    RoleType.TECH_STRATEGIST: """You are a Technology Strategist with expertise in digital transformation, 
-emerging technologies, and technical architecture. Analyze topics from a technical feasibility standpoint, 
-considering implementation challenges, scalability, security, and innovation opportunities."""
-    + STANCE_DIRECTIVE,
-    RoleType.DEVILS_ADVOCATE: """You are the Devil's Advocate. Your role is to challenge assumptions, 
-identify weaknesses in arguments, and stress-test ideas. Present counterarguments, ask difficult questions, 
-and point out potential pitfalls that others might overlook. Be constructively critical."""
-    + STANCE_DIRECTIVE,
+    RoleType.INVESTMENT_ADVISOR: _load_prompt("investment_advisor.txt") + STANCE_DIRECTIVE,
+    RoleType.PR_EXPERT: _load_prompt("pr_expert.txt") + STANCE_DIRECTIVE,
+    RoleType.POLITICS_EXPERT: _load_prompt("politics_expert.txt") + STANCE_DIRECTIVE,
+    RoleType.LEGAL_ADVISOR: _load_prompt("legal_advisor.txt") + STANCE_DIRECTIVE,
+    RoleType.TECH_STRATEGIST: _load_prompt("tech_strategist.txt") + STANCE_DIRECTIVE,
+    RoleType.DEVILS_ADVOCATE: _load_prompt("devils_advocate.txt") + STANCE_DIRECTIVE,
     RoleType.CUSTOM: "",  # Will use custom_prompt from AgentConfig
 }
