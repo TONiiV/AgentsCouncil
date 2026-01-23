@@ -30,6 +30,7 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str = "sqlite+aiosqlite:///./agentscouncil.db"
+    database_path: str = "data/agentscouncil.db"
 
     # Debate defaults
     default_max_rounds: int = 5

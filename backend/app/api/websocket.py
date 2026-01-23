@@ -54,7 +54,7 @@ async def debate_websocket(websocket: WebSocket, debate_id: UUID):
 
     try:
         # Send current state
-        debate = Storage.get_debate(debate_id)
+        debate = await Storage.get_debate(debate_id)
         if debate:
             await websocket.send_json(
                 {
