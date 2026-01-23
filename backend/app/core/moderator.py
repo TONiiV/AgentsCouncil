@@ -34,7 +34,8 @@ class ModeratorService:
         rounds_text = self._build_rounds_text(debate)
 
         system_prompt = """You are a skilled moderator and summarizer. Your task is to create 
-a clear, structured Markdown summary of a council debate. Be objective and highlight key insights."""
+a clear, structured Markdown summary of a council debate. Be objective and highlight key insights. 
+Keep the entire output within 200 characters."""
 
         user_message = f"""Please create a comprehensive summary of this council debate.
 
@@ -55,8 +56,8 @@ Please create a Markdown summary with the following sections:
 4. **Areas of Disagreement** - Points of contention that remained
 5. **Conclusion** - Final outcome and recommendations
 
-Use bullet points and clear formatting. Be concise but comprehensive.
-"""
+        Use bullet points and clear formatting. Be concise but comprehensive. Keep the full summary within 200 characters.
+        """
 
         summary = await self.provider.generate(
             system_prompt=system_prompt,
@@ -75,14 +76,14 @@ Use bullet points and clear formatting. Be concise but comprehensive.
         rounds_text = self._build_rounds_text(debate)
 
         response = await self.provider.generate(
-            system_prompt="You extract key arguments from debates. Be concise.",
+            system_prompt="You extract key arguments from debates. Be concise and keep total output within 200 characters.",
             user_message=f"""From this debate on "{debate.topic}", extract the top 3-5 PRO arguments 
 (arguments in favor of the topic or proposal). 
 
 Debate content:
 {rounds_text}
 
-Return ONLY a numbered list, one argument per line. Be concise (max 2 sentences each).
+Return ONLY a numbered list, one argument per line. Be concise (max 2 sentences each). Keep total output within 200 characters.
 """,
             model=self.model,
             max_tokens=512,
@@ -98,14 +99,14 @@ Return ONLY a numbered list, one argument per line. Be concise (max 2 sentences 
         rounds_text = self._build_rounds_text(debate)
 
         response = await self.provider.generate(
-            system_prompt="You extract key arguments from debates. Be concise.",
+            system_prompt="You extract key arguments from debates. Be concise and keep total output within 200 characters.",
             user_message=f"""From this debate on "{debate.topic}", extract the top 3-5 AGAINST arguments 
 (arguments opposing the topic or proposal, or concerns raised).
 
 Debate content:
 {rounds_text}
 
-Return ONLY a numbered list, one argument per line. Be concise (max 2 sentences each).
+Return ONLY a numbered list, one argument per line. Be concise (max 2 sentences each). Keep total output within 200 characters.
 """,
             model=self.model,
             max_tokens=512,

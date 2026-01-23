@@ -2,14 +2,11 @@
 Pytest Configuration and Shared Fixtures
 """
 
-from collections.abc import Generator
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
-from fastapi.testclient import TestClient
-
-from app.main import app
+import pytest_asyncio
 from app.models import (
     AgentConfig,
     CouncilConfig,
@@ -23,12 +20,14 @@ from app.models import (
 from app.storage import Storage
 
 
-@pytest.fixture(autouse=True)
-def clear_storage():
+@pytest_asyncio.fixture(autouse=True)
+async def clear_storage(tmp_path):
     """Clear storage before and after each test."""
-    Storage.clear()
+    Storage.configure(tmp_path / "agentscouncil.db")
+    await Storage.initialize()
+    await Storage.clear()
     yield
-    Storage.clear()
+    await Storage.clear()
 
 
 @pytest.fixture
@@ -129,9 +128,3 @@ def mock_provider():
     provider.get_system_prompt = MagicMock(return_value="You are a test assistant.")
     return provider
 
-
-@pytest.fixture
-def client() -> Generator[TestClient, None, None]:
-    """Create a FastAPI test client."""
-    with TestClient(app) as client:
-        yield client

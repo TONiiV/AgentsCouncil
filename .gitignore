@@ -4,6 +4,9 @@
 .LSOverride
 ._*
 
+# Worktrees
+.worktrees/
+
 # IntelliJ / JetBrains
 .idea/
 *.iml
@@ -62,6 +65,9 @@ coverage.xml
 
 # Logs
 *.log
+
+# Local storage
+backend/data/storage.json
 
 # Flutter (General)
 .dart_tool/
