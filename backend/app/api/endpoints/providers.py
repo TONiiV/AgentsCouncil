@@ -88,3 +88,31 @@ async def google_oauth_callback(
 
     # Return JSON for API requests (backward compatible)
     return {"status": "stored", "account": account}
+
+
+@router.get("/google-oauth/accounts")
+async def list_oauth_accounts(server: OAuthServer = Depends(get_oauth_server)):
+    """List OAuth accounts (emails only, no tokens exposed)."""
+    accounts = server.account_store.load_accounts()
+    return {
+        "accounts": [
+            {"email": acc.get("email"), "project_id": acc.get("project_id")} for acc in accounts
+        ]
+    }
+
+
+@router.delete("/google-oauth/accounts/{email}")
+async def delete_oauth_account(
+    email: str,
+    server: OAuthServer = Depends(get_oauth_server),
+):
+    """Remove an OAuth account."""
+    accounts = server.account_store.load_accounts()
+    original_count = len(accounts)
+    accounts = [acc for acc in accounts if acc.get("email") != email]
+
+    if len(accounts) == original_count:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    server.account_store.save_accounts(accounts)
+    return {"status": "deleted", "email": email}
