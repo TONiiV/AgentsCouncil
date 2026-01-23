@@ -2,9 +2,10 @@
 AgentsCouncil Backend - Provider Endpoints
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.models import ProviderType
+from app.oauth_server import OAuthServer, get_oauth_server
 from app.providers import ProviderRegistry
 
 router = APIRouter(tags=["providers"])
@@ -42,3 +43,21 @@ async def list_provider_models(provider: ProviderType):
             status_code=500,
             detail=f"Failed to fetch models: {e}",
         ) from e
+
+
+@router.get("/google-oauth/login")
+async def google_oauth_login(server: OAuthServer = Depends(get_oauth_server)):
+    return {"url": server.get_login_url()}
+
+
+@router.get("/google-oauth/callback")
+async def google_oauth_callback(
+    code: str,
+    state: str,
+    server: OAuthServer = Depends(get_oauth_server),
+):
+    try:
+        account = await server.handle_callback(code, state)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"status": "stored", "account": account}

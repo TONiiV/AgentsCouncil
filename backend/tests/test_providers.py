@@ -13,6 +13,10 @@ from app.providers.gemini_provider import GeminiProvider
 from app.providers.openai_provider import OpenAIProvider
 
 
+def test_provider_type_includes_google_oauth():
+    assert ProviderType.GOOGLE_OAUTH.value == "google_oauth"
+
+
 class TestBaseProvider:
     """Tests for BaseProvider abstract class."""
 
@@ -106,6 +110,40 @@ class TestProviderRegistry:
         assert ProviderType.OPENAI in available
         assert ProviderType.ANTHROPIC in available
         assert ProviderType.GEMINI in available
+
+    @patch("app.providers.OAuthAccountStore")
+    @patch("app.providers.get_settings")
+    def test_initialize_with_google_oauth_account(self, mock_settings, mock_store):
+        """Test initialization registers Google OAuth provider when accounts exist."""
+        mock_settings.return_value = MagicMock(
+            openai_api_key=None,
+            anthropic_api_key=None,
+            gemini_api_key=None,
+            ollama_base_url=None,
+        )
+        mock_store.return_value.has_accounts.return_value = True
+
+        ProviderRegistry._providers.clear()
+        ProviderRegistry.initialize()
+
+        assert ProviderRegistry.is_available(ProviderType.GOOGLE_OAUTH)
+
+    @patch("app.providers.OAuthAccountStore")
+    @patch("app.providers.get_settings")
+    def test_initialize_without_google_oauth_account(self, mock_settings, mock_store):
+        """Test initialization does NOT register Google OAuth provider when no accounts exist."""
+        mock_settings.return_value = MagicMock(
+            openai_api_key=None,
+            anthropic_api_key=None,
+            gemini_api_key=None,
+            ollama_base_url=None,
+        )
+        mock_store.return_value.has_accounts.return_value = False
+
+        ProviderRegistry._providers.clear()
+        ProviderRegistry.initialize()
+
+        assert not ProviderRegistry.is_available(ProviderType.GOOGLE_OAUTH)
 
 
 class TestOpenAIProvider:
