@@ -197,6 +197,21 @@ class TestDebateRound:
 class TestRolePrompts:
     """Tests for role prompts mapping."""
 
+    def test_role_prompts_include_stance_directives(self):
+        """Test that role prompts require stance and debate behavior."""
+        required_phrases = [
+            "Take a clear stance",
+            "Respond directly",
+            "state whether you agree or disagree",
+            "Avoid neutral or compromise",
+        ]
+        for role in RoleType:
+            if role == RoleType.CUSTOM:
+                continue
+            prompt = ROLE_PROMPTS[role]
+            for phrase in required_phrases:
+                assert phrase in prompt
+
     def test_all_roles_have_prompts(self):
         """Test that all roles have prompts defined."""
         for role in RoleType:
