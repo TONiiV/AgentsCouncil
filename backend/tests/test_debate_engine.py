@@ -1,6 +1,7 @@
 """
 Tests for Debate Engine
 """
+
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -183,7 +184,7 @@ class TestDebateEngineRun:
     @pytest.mark.asyncio
     async def test_run_debate_with_mocked_provider(self, sample_council, mock_provider):
         """Test running a complete debate with mocked provider."""
-        with patch('app.core.debate_engine.ProviderRegistry') as mock_registry:
+        with patch("app.core.debate_engine.ProviderRegistry") as mock_registry:
             mock_registry.get.return_value = mock_provider
 
             engine = DebateEngine(sample_council, "Test topic")
@@ -202,7 +203,7 @@ class TestDebateEngineRun:
                 ]
             )
 
-            with patch.object(engine, '_generate_summary', new_callable=AsyncMock) as mock_summary:
+            with patch.object(engine, "_generate_summary", new_callable=AsyncMock) as mock_summary:
                 mock_summary.return_value = "# Summary\nTest summary"
 
                 result = await engine.run()
@@ -216,7 +217,7 @@ class TestDebateEngineRun:
     @pytest.mark.asyncio
     async def test_run_round_collects_responses(self, sample_council, mock_provider):
         """Test that running a round collects all agent responses."""
-        with patch('app.core.debate_engine.ProviderRegistry') as mock_registry:
+        with patch("app.core.debate_engine.ProviderRegistry") as mock_registry:
             mock_registry.get.return_value = mock_provider
 
             engine = DebateEngine(sample_council, "Test topic")
@@ -238,7 +239,7 @@ class TestDebateEngineRun:
     @pytest.mark.asyncio
     async def test_get_agent_response_error_handling(self, sample_council):
         """Test error handling when provider is unavailable."""
-        with patch('app.core.debate_engine.ProviderRegistry') as mock_registry:
+        with patch("app.core.debate_engine.ProviderRegistry") as mock_registry:
             mock_registry.get.return_value = None
 
             engine = DebateEngine(sample_council, "Test topic")
@@ -248,14 +249,13 @@ class TestDebateEngineRun:
                 await engine._stream_and_collect_response(agent, "context", 1)
 
 
-
 class TestVoteParsingLogic:
     """Tests for vote parsing from AI responses."""
 
     @pytest.mark.asyncio
     async def test_parse_agree_vote(self, sample_council, mock_provider):
         """Test parsing AGREE vote from response."""
-        with patch('app.core.debate_engine.ProviderRegistry') as mock_registry:
+        with patch("app.core.debate_engine.ProviderRegistry") as mock_registry:
             mock_registry.get.return_value = mock_provider
             mock_provider.generate = AsyncMock(
                 return_value="VOTE: AGREE\nREASONING: I fully support this proposal."
@@ -288,7 +288,7 @@ class TestVoteParsingLogic:
         )
         fresh_mock_provider.get_system_prompt = MagicMock(return_value="You are a test assistant.")
 
-        with patch('app.core.debate_engine.ProviderRegistry') as mock_registry:
+        with patch("app.core.debate_engine.ProviderRegistry") as mock_registry:
             mock_registry.get.return_value = fresh_mock_provider
 
             engine = DebateEngine(sample_council, "Test topic")
@@ -302,11 +302,9 @@ class TestVoteParsingLogic:
     @pytest.mark.asyncio
     async def test_parse_abstain_default(self, sample_council, mock_provider):
         """Test that unparseable votes default to ABSTAIN."""
-        with patch('app.core.debate_engine.ProviderRegistry') as mock_registry:
+        with patch("app.core.debate_engine.ProviderRegistry") as mock_registry:
             mock_registry.get.return_value = mock_provider
-            mock_provider.generate = AsyncMock(
-                return_value="I'm not sure how to vote on this."
-            )
+            mock_provider.generate = AsyncMock(return_value="I'm not sure how to vote on this.")
 
             engine = DebateEngine(sample_council, "Test topic")
             agent = sample_council.agents[0]

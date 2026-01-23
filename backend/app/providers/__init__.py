@@ -1,6 +1,7 @@
 """
 AgentsCouncil Backend - Provider Registry
 """
+
 from typing import Optional
 
 from app.config import get_settings

@@ -1,6 +1,7 @@
 """
 AgentsCouncil Backend - Provider Endpoints
 """
+
 from fastapi import APIRouter, HTTPException
 
 from app.models import ProviderType
@@ -35,9 +36,9 @@ async def list_provider_models(provider: ProviderType):
             # Fallback for providers without list_models (e.g. OpenAI/Anthropic fixed lists)
             # This could be improved by adding list_models to BaseProvider
             return {"models": [provider_instance.default_model]}
-            
+
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to fetch models: {str(e)}",
-        )
+            detail=f"Failed to fetch models: {e}",
+        ) from e

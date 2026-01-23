@@ -1,6 +1,7 @@
 """
 Tests for AI Provider Implementations
 """
+
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -18,7 +19,7 @@ class TestBaseProvider:
     def test_get_system_prompt_standard_role(self, sample_agent_gemini):
         """Test getting system prompt for a standard role."""
         # Create a concrete instance for testing
-        with patch.object(GeminiProvider, '__init__', lambda self, api_key: None):
+        with patch.object(GeminiProvider, "__init__", lambda self, api_key: None):
             provider = GeminiProvider.__new__(GeminiProvider)
             provider.api_key = "test-key"
 
@@ -34,7 +35,7 @@ class TestBaseProvider:
             custom_prompt="You are a specialized custom agent.",
         )
 
-        with patch.object(GeminiProvider, '__init__', lambda self, api_key: None):
+        with patch.object(GeminiProvider, "__init__", lambda self, api_key: None):
             provider = GeminiProvider.__new__(GeminiProvider)
             provider.api_key = "test-key"
 
@@ -43,7 +44,7 @@ class TestBaseProvider:
 
     def test_get_system_prompt_devils_advocate(self, sample_agent_devils_advocate):
         """Test getting system prompt for Devil's Advocate role."""
-        with patch.object(GeminiProvider, '__init__', lambda self, api_key: None):
+        with patch.object(GeminiProvider, "__init__", lambda self, api_key: None):
             provider = GeminiProvider.__new__(GeminiProvider)
             provider.api_key = "test-key"
 
@@ -71,13 +72,14 @@ class TestProviderRegistry:
         ProviderRegistry._providers.clear()
         assert ProviderRegistry.get(ProviderType.OPENAI) is None
 
-    @patch('app.providers.get_settings')
+    @patch("app.providers.get_settings")
     def test_initialize_with_openai_key(self, mock_settings):
         """Test initialization with OpenAI API key."""
         mock_settings.return_value = MagicMock(
             openai_api_key="test-openai-key",
             anthropic_api_key=None,
             gemini_api_key=None,
+            ollama_base_url="http://localhost:11434",
         )
 
         ProviderRegistry._providers.clear()
@@ -87,13 +89,14 @@ class TestProviderRegistry:
         assert not ProviderRegistry.is_available(ProviderType.ANTHROPIC)
         assert not ProviderRegistry.is_available(ProviderType.GEMINI)
 
-    @patch('app.providers.get_settings')
+    @patch("app.providers.get_settings")
     def test_initialize_with_all_keys(self, mock_settings):
         """Test initialization with all API keys."""
         mock_settings.return_value = MagicMock(
             openai_api_key="test-openai-key",
             anthropic_api_key="test-anthropic-key",
             gemini_api_key="test-gemini-key",
+            ollama_base_url="http://localhost:11434",
         )
 
         ProviderRegistry._providers.clear()
@@ -110,7 +113,7 @@ class TestOpenAIProvider:
 
     def test_provider_properties(self):
         """Test OpenAI provider properties."""
-        with patch('app.providers.openai_provider.AsyncOpenAI'):
+        with patch("app.providers.openai_provider.AsyncOpenAI"):
             provider = OpenAIProvider("test-key")
             assert provider.name == "openai"
             assert provider.default_model == "gpt-4o"
@@ -118,7 +121,7 @@ class TestOpenAIProvider:
     @pytest.mark.asyncio
     async def test_generate_method(self):
         """Test OpenAI generate method with mocked client."""
-        with patch('app.providers.openai_provider.AsyncOpenAI') as mock_client_class:
+        with patch("app.providers.openai_provider.AsyncOpenAI") as mock_client_class:
             mock_client = MagicMock()
             mock_client_class.return_value = mock_client
 
@@ -142,7 +145,7 @@ class TestAnthropicProvider:
 
     def test_provider_properties(self):
         """Test Anthropic provider properties."""
-        with patch('app.providers.anthropic_provider.anthropic.AsyncAnthropic'):
+        with patch("app.providers.anthropic_provider.anthropic.AsyncAnthropic"):
             provider = AnthropicProvider("test-key")
             assert provider.name == "anthropic"
             assert "claude" in provider.default_model.lower()
@@ -150,7 +153,9 @@ class TestAnthropicProvider:
     @pytest.mark.asyncio
     async def test_generate_method(self):
         """Test Anthropic generate method with mocked client."""
-        with patch('app.providers.anthropic_provider.anthropic.AsyncAnthropic') as mock_client_class:
+        with patch(
+            "app.providers.anthropic_provider.anthropic.AsyncAnthropic"
+        ) as mock_client_class:
             mock_client = MagicMock()
             mock_client_class.return_value = mock_client
 
@@ -173,7 +178,7 @@ class TestGeminiProvider:
 
     def test_provider_properties(self):
         """Test Gemini provider properties."""
-        with patch('app.providers.gemini_provider.genai.configure'):
+        with patch("app.providers.gemini_provider.genai.Client"):
             provider = GeminiProvider("test-key")
             assert provider.name == "gemini"
             assert "gemini" in provider.default_model.lower()
@@ -181,17 +186,20 @@ class TestGeminiProvider:
     @pytest.mark.asyncio
     async def test_generate_method(self):
         """Test Gemini generate method with mocked client."""
-        with patch('app.providers.gemini_provider.genai.configure'):
-            with patch('app.providers.gemini_provider.genai.GenerativeModel') as mock_model_class:
-                mock_model = MagicMock()
-                mock_model_class.return_value = mock_model
+        with patch("app.providers.gemini_provider.genai.Client") as mock_client_class:
+            mock_client = MagicMock()
+            mock_client_class.return_value = mock_client
 
-                # Mock the response
-                mock_response = MagicMock()
-                mock_response.text = "Test response from Gemini"
-                mock_model.generate_content_async = AsyncMock(return_value=mock_response)
+            mock_model = MagicMock()
+            mock_response = MagicMock()
+            mock_response.text = "Test response from Gemini"
+            mock_client.aio.models.generate_content = AsyncMock(return_value=mock_response)
 
-                provider = GeminiProvider("test-key")
+            with patch.object(GeminiProvider, "__init__", lambda self, api_key: None):
+                provider = GeminiProvider.__new__(GeminiProvider)
+                provider.client = mock_client
+                provider.api_key = "test-key"
+
                 result = await provider.generate(
                     system_prompt="You are a test assistant.",
                     user_message="Hello!",

@@ -1,6 +1,7 @@
 """
 AgentsCouncil Backend - Debate API Routes
 """
+
 import asyncio
 import logging
 import traceback
@@ -25,7 +26,7 @@ async def _run_debate_task(debate_id: UUID, engine: DebateEngine) -> None:
     """Background task to run a debate."""
     # Register WebSocket broadcast callback for real-time updates
     engine.on_event(broadcast_debate_update)
-    
+
     try:
         logger.info(f"Starting debate {debate_id} on topic: {engine.topic}")
         result = await engine.run()
@@ -42,7 +43,6 @@ async def _run_debate_task(debate_id: UUID, engine: DebateEngine) -> None:
             Storage.save_debate(debate)
     finally:
         _running_debates.pop(debate_id, None)
-
 
 
 @router.post("", response_model=Debate)

@@ -1,6 +1,7 @@
 """
 Tests for Storage Module
 """
+
 from uuid import uuid4
 
 from app.models import Debate, DebateStatus

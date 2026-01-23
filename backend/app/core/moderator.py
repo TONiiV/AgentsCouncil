@@ -128,10 +128,12 @@ Return ONLY a numbered list, one argument per line. Be concise (max 2 sentences 
 
     def _format_council_members(self, council: CouncilConfig) -> str:
         """Format council members for display."""
-        return "\n".join([
-            f"- {agent.name}: {agent.role.value} ({agent.provider.value})"
-            for agent in council.agents
-        ])
+        return "\n".join(
+            [
+                f"- {agent.name}: {agent.role.value} ({agent.provider.value})"
+                for agent in council.agents
+            ]
+        )
 
     def _parse_list(self, text: str) -> list[str]:
         """Parse a numbered or bulleted list from text."""
@@ -144,7 +146,7 @@ Return ONLY a numbered list, one argument per line. Be concise (max 2 sentences 
                 # Remove common prefixes
                 for prefix in ["1.", "2.", "3.", "4.", "5.", "-", "*", "•"]:
                     if cleaned.startswith(prefix):
-                        cleaned = cleaned[len(prefix):].strip()
+                        cleaned = cleaned[len(prefix) :].strip()
                         break
                 if cleaned:
                     points.append(cleaned)
