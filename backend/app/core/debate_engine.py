@@ -7,7 +7,7 @@ Core logic for managing multi-agent debates, rounds, and voting.
 import asyncio
 import logging
 from collections.abc import Callable
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.models import (
     AgentConfig,
@@ -17,6 +17,7 @@ from app.models import (
     DebateRound,
     DebateStatus,
     DebateUpdate,
+    RoleType,
     VoteType,
 )
 from app.providers import ProviderRegistry
@@ -73,7 +74,7 @@ class DebateEngine:
 
             # Generate final summary
             self.debate.summary = await self._generate_summary()
-            self.debate.completed_at = datetime.utcnow()
+            self.debate.completed_at = datetime.now(timezone.utc)
 
             await self._emit_event(
                 "debate_complete",
@@ -221,16 +222,36 @@ Be concise but thorough. Focus on your area of expertise ({agent.role.value}).
         full_content = ""
 
         try:
-            # We use a timeout for the entire stream to prevent hanging
-            # But we also need to handle the stream iterator
-            async def consume_stream():
-                nonlocal full_content
-                async for chunk in provider.generate_stream(
-                    system_prompt=system_prompt,
-                    user_message=user_message,
-                    model=agent.model,
-                ):
-                    full_content += chunk
+            if agent.role == RoleType.INVESTMENT_ADVISOR and hasattr(
+                provider, "generate_with_tools"
+            ):
+                from app.tools import INVESTMENT_TOOLS
+
+                logger.info(f"Using tool-enabled generation for investment advisor {agent.name}")
+
+                async def generate_with_tools():
+                    nonlocal full_content
+                    content, tool_calls = await provider.generate_with_tools(
+                        system_prompt=system_prompt,
+                        user_message=user_message,
+                        tools=INVESTMENT_TOOLS,
+                        model=agent.model,
+                    )
+                    full_content = content
+
+                    for tc in tool_calls:
+                        await self._emit_event(
+                            "tool_call",
+                            {
+                                "round": round_number,
+                                "agent_id": str(agent.id),
+                                "agent_name": agent.name,
+                                "tool_name": tc["name"],
+                                "tool_args": tc["args"],
+                                "tool_result": str(tc["result"])[:500],
+                            },
+                        )
+
                     await self._emit_event(
                         "agent_response_chunk",
                         {
@@ -239,12 +260,36 @@ Be concise but thorough. Focus on your area of expertise ({agent.role.value}).
                             "agent_name": agent.name,
                             "role": agent.role.value,
                             "provider": agent.provider.value,
-                            "chunk": chunk,
+                            "chunk": full_content,
                             "full_content_so_far": full_content,
                         },
                     )
 
-            await asyncio.wait_for(consume_stream(), timeout=90.0)
+                await asyncio.wait_for(generate_with_tools(), timeout=120.0)
+            else:
+
+                async def consume_stream():
+                    nonlocal full_content
+                    async for chunk in provider.generate_stream(
+                        system_prompt=system_prompt,
+                        user_message=user_message,
+                        model=agent.model,
+                    ):
+                        full_content += chunk
+                        await self._emit_event(
+                            "agent_response_chunk",
+                            {
+                                "round": round_number,
+                                "agent_id": str(agent.id),
+                                "agent_name": agent.name,
+                                "role": agent.role.value,
+                                "provider": agent.provider.value,
+                                "chunk": chunk,
+                                "full_content_so_far": full_content,
+                            },
+                        )
+
+                await asyncio.wait_for(consume_stream(), timeout=90.0)
 
         except TimeoutError:
             logger.error(f"Timeout waiting for agent {agent.name}")

@@ -9,7 +9,9 @@ import pytest
 
 from app.core.debate_engine import DebateEngine
 from app.models import (
+    AgentConfig,
     AgentResponse,
+    CouncilConfig,
     DebateRound,
     DebateStatus,
     ProviderType,
@@ -313,3 +315,235 @@ class TestVoteParsingLogic:
             result = await engine._get_agent_vote(agent, responses)
 
             assert result.vote == VoteType.ABSTAIN
+
+
+class TestDebateEngineToolCallEvents:
+    """Tests for tool call event handling in the debate engine."""
+
+    @pytest.mark.asyncio
+    async def test_tool_call_event_emitted(self, sample_council, mock_provider):
+        """Test that tool_call events are emitted during debate."""
+        with patch("app.core.debate_engine.ProviderRegistry") as mock_registry:
+            mock_registry.get.return_value = mock_provider
+
+            engine = DebateEngine(sample_council, "Test topic")
+
+            # Track all events
+            events = []
+            engine.on_event(lambda e: events.append(e))
+
+            # Mock provider with generate_with_tools capability
+            investment_agent = sample_council.agents[0]
+            investment_agent.role = RoleType.INVESTMENT_ADVISOR
+
+            mock_provider.generate_with_tools = AsyncMock(
+                return_value=(
+                    "Based on the stock data, AAPL is a buy.",
+                    [
+                        {
+                            "name": "get_stock_quote",
+                            "args": {"symbol": "AAPL"},
+                            "result": {"price": 150.0, "market_cap": "2.5T"},
+                        }
+                    ],
+                )
+            )
+            mock_provider.generate = AsyncMock(
+                return_value="VOTE: AGREE\nREASONING: Good analysis."
+            )
+            mock_provider.get_system_prompt = MagicMock(
+                return_value="You are an investment advisor."
+            )
+
+            round_result = await engine._run_round(1)
+
+            # Check that tool_call events were emitted
+            tool_call_events = [e for e in events if e.event_type == "tool_call"]
+            assert len(tool_call_events) >= 1
+
+            # Verify event structure
+            for event in tool_call_events:
+                assert "tool_name" in event.data
+                assert "tool_args" in event.data
+                assert "tool_result" in event.data
+                assert event.data["tool_name"] == "get_stock_quote"
+
+    @pytest.mark.asyncio
+    async def test_tool_call_event_with_investment_advisor(self, sample_council):
+        """Test that investment advisor triggers tool calls."""
+        investment_agent = AgentConfig(
+            id=uuid4(),
+            name="Investment Advisor",
+            provider=ProviderType.GEMINI,
+            role=RoleType.INVESTMENT_ADVISOR,
+        )
+        council = CouncilConfig(
+            id=uuid4(),
+            name="Investment Council",
+            agents=[investment_agent],
+            max_rounds=2,
+            consensus_threshold=0.8,
+        )
+
+        mock_gemini = MagicMock()
+        mock_gemini.name = "gemini"
+        mock_gemini.default_model = "gemini-1.5-flash"
+        mock_gemini.generate_with_tools = AsyncMock(
+            return_value=(
+                "Based on market analysis, consider buying.",
+                [
+                    {
+                        "name": "get_market_summary",
+                        "args": {},
+                        "result": {"sp500": 4500, "nasdaq": 14000},
+                    }
+                ],
+            )
+        )
+        mock_gemini.get_system_prompt = MagicMock(return_value="You are an investment advisor.")
+
+        with patch("app.core.debate_engine.ProviderRegistry") as mock_registry:
+            mock_registry.get.return_value = mock_gemini
+
+            engine = DebateEngine(council, "Should we buy tech stocks?")
+
+            events = []
+            engine.on_event(lambda e: events.append(e))
+
+            round_result = await engine._run_round(1)
+
+            # Should have tool call events
+            tool_events = [e for e in events if e.event_type == "tool_call"]
+            assert len(tool_events) > 0
+            assert any("market" in str(e.data).lower() for e in tool_events)
+
+    @pytest.mark.asyncio
+    async def test_multiple_tool_calls_in_single_response(self, sample_council, mock_provider):
+        """Test handling of multiple tool calls in a single response."""
+        with patch("app.core.debate_engine.ProviderRegistry") as mock_registry:
+            mock_registry.get.return_value = mock_provider
+
+            engine = DebateEngine(sample_council, "Test topic")
+
+            # Create investment advisor agent
+            investment_agent = AgentConfig(
+                id=uuid4(),
+                name="Investor",
+                provider=ProviderType.GEMINI,
+                role=RoleType.INVESTMENT_ADVISOR,
+            )
+            engine.council.agents = [investment_agent]
+
+            # Mock provider to return multiple tool calls
+            mock_provider.generate_with_tools = AsyncMock(
+                return_value=(
+                    "Analysis complete.",
+                    [
+                        {
+                            "name": "get_stock_quote",
+                            "args": {"symbol": "AAPL"},
+                            "result": {"price": 150},
+                        },
+                        {
+                            "name": "get_stock_news",
+                            "args": {"symbol": "AAPL"},
+                            "result": [{"title": "News"}],
+                        },
+                        {"name": "get_market_summary", "args": {}, "result": {"sp500": 4500}},
+                    ],
+                )
+            )
+            mock_provider.get_system_prompt = MagicMock(
+                return_value="You are an investment advisor."
+            )
+
+            events = []
+            engine.on_event(lambda e: events.append(e))
+
+            await engine._run_round(1)
+
+            # Should have 3 tool call events (one per tool)
+            tool_call_events = [e for e in events if e.event_type == "tool_call"]
+            assert len(tool_call_events) == 3
+
+    @pytest.mark.asyncio
+    async def test_tool_call_truncation_for_ui(self, sample_council, mock_provider):
+        """Test that tool results are truncated for UI display."""
+        with patch("app.core.debate_engine.ProviderRegistry") as mock_registry:
+            mock_registry.get.return_value = mock_provider
+
+            engine = DebateEngine(sample_council, "Test topic")
+
+            investment_agent = sample_council.agents[0]
+            investment_agent.role = RoleType.INVESTMENT_ADVISOR
+
+            # Create a very long result
+            long_result = "X" * 2000
+
+            mock_provider.generate_with_tools = AsyncMock(
+                return_value=(
+                    "Analysis complete.",
+                    [
+                        {
+                            "name": "get_stock_quote",
+                            "args": {"symbol": "AAPL"},
+                            "result": long_result,
+                        }
+                    ],
+                )
+            )
+            mock_provider.get_system_prompt = MagicMock(
+                return_value="You are an investment advisor."
+            )
+
+            events = []
+            engine.on_event(lambda e: events.append(e))
+
+            await engine._run_round(1)
+
+            tool_event = next(e for e in events if e.event_type == "tool_call")
+            # Result should be truncated
+            assert len(tool_event.data["tool_result"]) <= 503  # 500 + "..." suffix if applied
+
+
+class TestDebateEngineErrorHandling:
+    """Tests for error handling in debate engine."""
+
+    @pytest.mark.asyncio
+    async def test_provider_error_handling(self, sample_council):
+        """Test that provider errors are handled gracefully."""
+        mock_failing = MagicMock()
+        mock_failing.generate = AsyncMock(side_effect=Exception("API rate limit"))
+        mock_failing.get_system_prompt = MagicMock(return_value="You are a test assistant.")
+
+        with patch("app.core.debate_engine.ProviderRegistry") as mock_registry:
+            mock_registry.get.return_value = mock_failing
+
+            engine = DebateEngine(sample_council, "Test topic")
+            agent = sample_council.agents[0]
+
+            # Should not raise, but create error response
+            response = await engine._stream_and_collect_response(agent, "context", 1)
+
+            assert response.content == ""
+            assert response.provider == agent.provider
+
+    @pytest.mark.asyncio
+    async def test_debate_timeout_handling(self, sample_council):
+        """Test that timeout errors are handled gracefully."""
+        import asyncio
+
+        mock_provider = MagicMock()
+        mock_provider.generate = AsyncMock(side_effect=asyncio.TimeoutError())
+        mock_provider.get_system_prompt = MagicMock(return_value="You are a test assistant.")
+
+        with patch("app.core.debate_engine.ProviderRegistry") as mock_registry:
+            mock_registry.get.return_value = mock_provider
+
+            engine = DebateEngine(sample_council, "Test topic")
+            agent = sample_council.agents[0]
+
+            response = await engine._stream_and_collect_response(agent, "context", 1)
+
+            assert response is not None
+            assert response.provider == agent.provider
