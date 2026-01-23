@@ -1,6 +1,7 @@
 """
 AgentsCouncil Backend - Google Gemini Provider
 """
+
 import asyncio
 import logging
 from collections.abc import AsyncIterator
@@ -47,7 +48,7 @@ class GeminiProvider(BaseProvider):
                 error_str = str(e).lower()
                 if "429" in error_str or ("resource" in error_str and "exhausted" in error_str):
                     last_exception = e
-                    delay = min(self.BASE_DELAY * (2 ** attempt), self.MAX_DELAY)
+                    delay = min(self.BASE_DELAY * (2**attempt), self.MAX_DELAY)
                     logger.warning(
                         f"Rate limited (429). Attempt {attempt + 1}/{self.MAX_RETRIES}. "
                         f"Retrying in {delay:.1f}s..."
@@ -104,34 +105,34 @@ class GeminiProvider(BaseProvider):
                         max_output_tokens=max_tokens,
                     ),
                 )
-                
+
                 has_yielded = False
                 async for chunk in response_stream:
                     if chunk.text:
                         has_yielded = True
                         yield chunk.text
-                
+
                 # If we complete the stream successfully, return
                 return
 
             except Exception as e:
                 # If we already sent data to the caller, we can't retry as it would duplicate
                 # content or corrupt the stream. We must abort.
-                if 'has_yielded' in locals() and has_yielded:
+                if "has_yielded" in locals() and has_yielded:
                     logger.error(f"Stream failed after yielding data: {e}")
                     raise
 
                 # Check for rate limit errors
                 error_str = str(e).lower()
                 if "429" in error_str or ("resource" in error_str and "exhausted" in error_str):
-                    delay = min(self.BASE_DELAY * (2 ** attempt), self.MAX_DELAY)
+                    delay = min(self.BASE_DELAY * (2**attempt), self.MAX_DELAY)
                     logger.warning(
                         f"Stream rate limited (429). Attempt {attempt + 1}/{self.MAX_RETRIES}. "
                         f"Retrying in {delay:.1f}s..."
                     )
                     await asyncio.sleep(delay)
                     continue
-                
+
                 # Other errors - re-raise
                 logger.error(f"Gemini stream error: {e}")
                 raise
@@ -139,6 +140,127 @@ class GeminiProvider(BaseProvider):
         # All retries exhausted
         logger.error(f"Stream retries exhausted due to rate limiting")
         raise Exception("Stream failed after max retries")
+
+    async def generate_with_tools(
+        self,
+        system_prompt: str,
+        user_message: str,
+        tools: list[types.Tool],
+        model: str | None = None,
+        max_tokens: int = 2048,
+    ) -> tuple[str, list[dict]]:
+        """Generate a response with function calling support.
+
+        Args:
+            system_prompt: System instructions for the model
+            user_message: User's message/query
+            tools: List of Gemini Tool objects with function declarations
+            model: Optional model override
+            max_tokens: Maximum tokens in response
+
+        Returns:
+            Tuple of (final_response_text, list_of_tool_calls_made)
+        """
+        from app.tools.registry import ToolRegistry
+
+        tool_calls_made = []
+        contents = [user_message]
+
+        async def _do_generate_with_tools():
+            nonlocal contents, tool_calls_made
+
+            # Initial request with tools
+            response = await self.client.aio.models.generate_content(
+                model=model or self.default_model,
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_prompt,
+                    max_output_tokens=max_tokens,
+                    tools=tools,
+                ),
+            )
+
+            # Check if the model wants to call a function
+            max_tool_iterations = 5
+            iteration = 0
+
+            while iteration < max_tool_iterations:
+                iteration += 1
+
+                # Check for function calls in the response
+                if not response.candidates or not response.candidates[0].content:
+                    break
+
+                parts = response.candidates[0].content.parts
+                function_calls = [
+                    p for p in parts if hasattr(p, "function_call") and p.function_call
+                ]
+
+                if not function_calls:
+                    # No function calls, we have the final response
+                    break
+
+                # Execute each function call
+                function_responses = []
+                for part in function_calls:
+                    fc = part.function_call
+                    tool_name = fc.name
+                    tool_args = dict(fc.args) if fc.args else {}
+
+                    logger.info(f"Executing tool: {tool_name} with args: {tool_args}")
+
+                    try:
+                        result = await ToolRegistry.execute_tool(tool_name, tool_args)
+                        tool_calls_made.append(
+                            {
+                                "name": tool_name,
+                                "args": tool_args,
+                                "result": result,
+                            }
+                        )
+
+                        # Create function response
+                        function_responses.append(
+                            types.Part.from_function_response(
+                                name=tool_name,
+                                response={"result": str(result)},
+                            )
+                        )
+                    except Exception as e:
+                        logger.error(f"Tool execution failed: {e}")
+                        tool_calls_made.append(
+                            {
+                                "name": tool_name,
+                                "args": tool_args,
+                                "result": f"Error: {str(e)}",
+                            }
+                        )
+                        function_responses.append(
+                            types.Part.from_function_response(
+                                name=tool_name,
+                                response={"error": str(e)},
+                            )
+                        )
+
+                # Send function results back to the model
+                response = await self.client.aio.models.generate_content(
+                    model=model or self.default_model,
+                    contents=[
+                        user_message,
+                        response.candidates[0].content,
+                        types.Content(parts=function_responses),
+                    ],
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_prompt,
+                        max_output_tokens=max_tokens,
+                        tools=tools,
+                    ),
+                )
+
+            return response.text if response.text else ""
+
+        final_text = await self._retry_with_backoff(_do_generate_with_tools)
+        return final_text, tool_calls_made
 
     async def list_models(self) -> list[str]:
         """List available Gemini models."""
