@@ -1,6 +1,7 @@
 """
 AgentsCouncil Backend - Council API Routes
 """
+
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException
@@ -34,14 +35,13 @@ async def list_provider_models(provider_type: ProviderType) -> list[str]:
     provider = ProviderRegistry.get(provider_type)
     if not provider:
         raise HTTPException(
-            status_code=404, 
-            detail=f"Provider {provider_type.value} is not available."
+            status_code=404, detail=f"Provider {provider_type.value} is not available."
         )
-    
+
     # Check if provider has list_models method (Ollama does)
     if hasattr(provider, "list_models"):
         return await provider.list_models()
-        
+
     # Return default model for others (or empty list if unknown)
     return [provider.default_model]
 
@@ -52,12 +52,14 @@ async def list_roles() -> list[dict]:
     roles = []
     for role in RoleType:
         prompt = ROLE_PROMPTS.get(role, "")
-        roles.append({
-            "id": role.value,
-            "name": role.value.replace("_", " ").title(),
-            "description": prompt[:200] + "..." if len(prompt) > 200 else prompt,
-            "is_custom": role == RoleType.CUSTOM,
-        })
+        roles.append(
+            {
+                "id": role.value,
+                "name": role.value.replace("_", " ").title(),
+                "description": prompt[:200] + "..." if len(prompt) > 200 else prompt,
+                "is_custom": role == RoleType.CUSTOM,
+            }
+        )
     return roles
 
 
@@ -70,7 +72,7 @@ async def create_council(council_data: CouncilCreate) -> CouncilConfig:
             raise HTTPException(
                 status_code=400,
                 detail=f"Provider {agent.provider.value} is not configured. "
-                       f"Please add the API key to your .env file.",
+                f"Please add the API key to your .env file.",
             )
 
     council = CouncilConfig(

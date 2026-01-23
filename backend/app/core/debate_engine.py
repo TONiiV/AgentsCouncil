@@ -3,6 +3,7 @@ AgentsCouncil Backend - Debate Engine
 
 Core logic for managing multi-agent debates, rounds, and voting.
 """
+
 import asyncio
 import logging
 from collections.abc import Callable
@@ -74,12 +75,15 @@ class DebateEngine:
             self.debate.summary = await self._generate_summary()
             self.debate.completed_at = datetime.utcnow()
 
-            await self._emit_event("debate_complete", {
-                "status": self.debate.status.value,
-                "summary": self.debate.summary,
-                "pro_points": self.debate.pro_points,
-                "against_points": self.debate.against_points,
-            })
+            await self._emit_event(
+                "debate_complete",
+                {
+                    "status": self.debate.status.value,
+                    "summary": self.debate.summary,
+                    "pro_points": self.debate.pro_points,
+                    "against_points": self.debate.against_points,
+                },
+            )
 
             return self.debate
 
@@ -100,11 +104,14 @@ class DebateEngine:
 
         # Emit thinking events for all agents
         for agent in self.council.agents:
-            await self._emit_event("agent_thinking", {
-                "round": round_number,
-                "agent_id": str(agent.id),
-                "agent_name": agent.name,
-            })
+            await self._emit_event(
+                "agent_thinking",
+                {
+                    "round": round_number,
+                    "agent_id": str(agent.id),
+                    "agent_name": agent.name,
+                },
+            )
 
         # Run ALL agents in parallel - streams will interleave naturally
         response_tasks = [
@@ -119,28 +126,30 @@ class DebateEngine:
                 logger.error(f"Agent response failed: {response}")
                 continue
             round_result.responses.append(response)
-            await self._emit_event("agent_response", {
-                "round": round_number,
-                "agent_id": str(response.agent_id),
-                "agent_name": response.agent_name,
-                "role": response.role.value,
-                "provider": response.provider.value,
-                "content": response.content,
-            })
+            await self._emit_event(
+                "agent_response",
+                {
+                    "round": round_number,
+                    "agent_id": str(response.agent_id),
+                    "agent_name": response.agent_name,
+                    "role": response.role.value,
+                    "provider": response.provider.value,
+                    "content": response.content,
+                },
+            )
 
         # Collect votes in parallel
         vote_tasks = [
-            self._get_agent_vote(agent, round_result.responses)
-            for agent in self.council.agents
+            self._get_agent_vote(agent, round_result.responses) for agent in self.council.agents
         ]
         vote_results = await asyncio.gather(*vote_tasks, return_exceptions=True)
 
         # Process vote results
-        for agent, vote_response in zip(self.council.agents, vote_results):
+        for agent, vote_response in zip(self.council.agents, vote_results, strict=True):
             if isinstance(vote_response, Exception):
                 logger.error(f"Vote from {agent.name} failed: {vote_response}")
                 continue
-            
+
             round_result.votes[str(agent.id)] = vote_response.vote
 
             # Update response with vote info
@@ -149,25 +158,30 @@ class DebateEngine:
                     resp.vote = vote_response.vote
                     resp.reasoning = vote_response.reasoning
 
-            await self._emit_event("vote", {
-                "round": round_number,
-                "agent_id": str(agent.id),
-                "agent_name": agent.name,
-                "vote": vote_response.vote.value if vote_response.vote else None,
-            })
+            await self._emit_event(
+                "vote",
+                {
+                    "round": round_number,
+                    "agent_id": str(agent.id),
+                    "agent_name": agent.name,
+                    "vote": vote_response.vote.value if vote_response.vote else None,
+                },
+            )
 
         # Calculate vote summary
         round_result.vote_summary = self._calculate_vote_summary(round_result.votes)
         round_result.consensus_reached = self._check_consensus(round_result.vote_summary)
 
-        await self._emit_event("round_complete", {
-            "round": round_number,
-            "vote_summary": round_result.vote_summary,
-            "consensus": round_result.consensus_reached,
-        })
+        await self._emit_event(
+            "round_complete",
+            {
+                "round": round_number,
+                "vote_summary": round_result.vote_summary,
+                "consensus": round_result.consensus_reached,
+            },
+        )
 
         return round_result
-
 
     def _build_round_context(self, current_round: int) -> str:
         """Build context string from previous rounds for agent reference."""
@@ -178,9 +192,7 @@ class DebateEngine:
         for round_data in self.debate.rounds:
             context_parts.append(f"\n--- Round {round_data.round_number} ---")
             for resp in round_data.responses:
-                context_parts.append(
-                    f"\n{resp.agent_name} ({resp.role.value}):\n{resp.content}"
-                )
+                context_parts.append(f"\n{resp.agent_name} ({resp.role.value}):\n{resp.content}")
             if round_data.vote_summary:
                 context_parts.append(f"\nVotes: {round_data.vote_summary}")
 
@@ -190,7 +202,9 @@ class DebateEngine:
         self, agent: AgentConfig, context: str, round_number: int
     ) -> AgentResponse:
         """Stream response from agent and collect full content."""
-        logger.info(f"Streaming response from {agent.name} ({agent.provider.value}) for round {round_number}")
+        logger.info(
+            f"Streaming response from {agent.name} ({agent.provider.value}) for round {round_number}"
+        )
         provider = ProviderRegistry.get(agent.provider)
         if not provider:
             logger.error(f"Provider {agent.provider} not available for agent {agent.name}")
@@ -205,7 +219,7 @@ This is round {round_number}. Please provide your perspective, considering other
 Be concise but thorough. Focus on your area of expertise ({agent.role.value}).
 """
         full_content = ""
-        
+
         try:
             # We use a timeout for the entire stream to prevent hanging
             # But we also need to handle the stream iterator
@@ -217,18 +231,21 @@ Be concise but thorough. Focus on your area of expertise ({agent.role.value}).
                     model=agent.model,
                 ):
                     full_content += chunk
-                    await self._emit_event("agent_response_chunk", {
-                        "round": round_number,
-                        "agent_id": str(agent.id),
-                        "agent_name": agent.name,
-                        "role": agent.role.value,
-                        "provider": agent.provider.value,
-                        "chunk": chunk,
-                        "full_content_so_far": full_content,
-                    })
+                    await self._emit_event(
+                        "agent_response_chunk",
+                        {
+                            "round": round_number,
+                            "agent_id": str(agent.id),
+                            "agent_name": agent.name,
+                            "role": agent.role.value,
+                            "provider": agent.provider.value,
+                            "chunk": chunk,
+                            "full_content_so_far": full_content,
+                        },
+                    )
 
             await asyncio.wait_for(consume_stream(), timeout=90.0)
-            
+
         except TimeoutError:
             logger.error(f"Timeout waiting for agent {agent.name}")
             raise TimeoutError(f"Agent {agent.name} failed to respond in time")
@@ -255,10 +272,9 @@ Be concise but thorough. Focus on your area of expertise ({agent.role.value}).
             raise ValueError(f"Provider {agent.provider} not available")
 
         # Build summary of all responses for voting
-        responses_text = "\n\n".join([
-            f"{r.agent_name} ({r.role.value}):\n{r.content}"
-            for r in responses
-        ])
+        responses_text = "\n\n".join(
+            [f"{r.agent_name} ({r.role.value}):\n{r.content}" for r in responses]
+        )
 
         system_prompt = f"""You are {agent.name}, a {agent.role.value}. 
 You must vote on whether consensus has been reached based on the discussion."""
@@ -286,7 +302,7 @@ Vote ABSTAIN if you're uncertain or need more information.
                     model=agent.model,
                     max_tokens=256,
                 ),
-                timeout=30.0  # 30 second timeout for voting
+                timeout=30.0,  # 30 second timeout for voting
             )
         except TimeoutError:
             logger.error(f"Timeout waiting for vote from {agent.name}")
@@ -351,4 +367,3 @@ Vote ABSTAIN if you're uncertain or need more information.
         self.debate.against_points = await moderator.extract_against_points(self.debate)
 
         return summary
-

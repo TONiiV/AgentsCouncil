@@ -1,7 +1,8 @@
 """
 Tests for FastAPI REST Endpoints
 """
-from unittest.mock import patch, MagicMock, AsyncMock
+
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -77,7 +78,7 @@ class TestCouncilsAPI:
         assert "name" in roles[0]
         assert "description" in roles[0]
 
-    @patch.object(ProviderRegistry, 'is_available', return_value=True)
+    @patch.object(ProviderRegistry, "is_available", return_value=True)
     def test_create_council(self, mock_is_available, client):
         """Test creating a council."""
         council_data = {
@@ -108,7 +109,7 @@ class TestCouncilsAPI:
     def test_create_council_unavailable_provider(self, client):
         """Test creating a council with unavailable provider."""
         # Clear registry to ensure no providers available
-        with patch.object(ProviderRegistry, 'is_available', return_value=False):
+        with patch.object(ProviderRegistry, "is_available", return_value=False):
             council_data = {
                 "name": "Test Council",
                 "agents": [
@@ -268,21 +269,24 @@ class TestDebatesAPI:
         assert data["status"] == "error"
         assert data["error_message"] == "Test error: API call failed"
 
+
 class TestProvidersAPI:
     """Tests for provider endpoints."""
 
     def test_list_provider_models(self, client):
         """Test listing models for a provider."""
         # We need to mock the ProviderRegistry to return a mock provider with list_models
-        from app.providers import ProviderRegistry
         from app.models import ProviderType
-        
+        from app.providers import ProviderRegistry
+
         mock_provider = MagicMock()
         mock_provider.list_models = AsyncMock(return_value=["model1", "model2"])
-        
-        with patch.object(ProviderRegistry, 'get', return_value=mock_provider), \
-             patch.object(ProviderRegistry, 'is_available', return_value=True):
-            
+
+        with (
+            patch.object(ProviderRegistry, "get", return_value=mock_provider),
+            patch.object(ProviderRegistry, "is_available", return_value=True),
+        ):
+
             response = client.get(f"/api/providers/{ProviderType.GEMINI.value}/models")
             assert response.status_code == 200
             data = response.json()

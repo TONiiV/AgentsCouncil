@@ -58,7 +58,9 @@ class Storage:
                     except Exception as e:
                         logger.error(f"Failed to load debate: {e}")
 
-                logger.info(f"Loaded {len(Storage._councils)} councils and {len(Storage._debates)} debates.")
+                logger.info(
+                    f"Loaded {len(Storage._councils)} councils and {len(Storage._debates)} debates."
+                )
             except Exception as e:
                 logger.error(f"Failed to load storage file: {e}")
 
@@ -71,8 +73,8 @@ class Storage:
             DATA_DIR.mkdir(parents=True, exist_ok=True)
 
         data = {
-            "councils": [c.model_dump(mode='json') for c in Storage._councils.values()],
-            "debates": [d.model_dump(mode='json') for d in Storage._debates.values()]
+            "councils": [c.model_dump(mode="json") for c in Storage._councils.values()],
+            "debates": [d.model_dump(mode="json") for d in Storage._debates.values()],
         }
 
         try:

@@ -1,13 +1,13 @@
 """
 AgentsCouncil Backend - Ollama Provider
 """
+
 import json
 import logging
 from collections.abc import AsyncIterator
 
 import httpx
 
-from app.config import get_settings
 from app.providers.base import BaseProvider
 
 logger = logging.getLogger(__name__)
@@ -42,10 +42,10 @@ class OllamaProvider(BaseProvider):
     ) -> str:
         """Generate a response from the Ollama model."""
         model = model or self.default_model
-        
-        # Check if the model is available first? 
+
+        # Check if the model is available first?
         # For now, just try to generate.
-        
+
         payload = {
             "model": model,
             "messages": [
@@ -55,7 +55,7 @@ class OllamaProvider(BaseProvider):
             "stream": False,
             "options": {
                 "num_predict": max_tokens,
-            }
+            },
         }
 
         try:
@@ -79,7 +79,7 @@ class OllamaProvider(BaseProvider):
     ) -> AsyncIterator[str]:
         """Stream a response from the Ollama model."""
         model = model or self.default_model
-        
+
         payload = {
             "model": model,
             "messages": [
@@ -89,14 +89,16 @@ class OllamaProvider(BaseProvider):
             "stream": True,
             "options": {
                 "num_predict": max_tokens,
-            }
+            },
         }
 
         try:
             async with self.client.stream("POST", "/chat", json=payload) as response:
                 if response.status_code != 200:
                     error_text = await response.aread()
-                    logger.error(f"Ollama API stream error: {response.status_code} - {error_text.decode('utf-8', errors='replace')}")
+                    logger.error(
+                        f"Ollama API stream error: {response.status_code} - {error_text.decode('utf-8', errors='replace')}"
+                    )
                     response.raise_for_status()
 
                 async for line in response.aiter_lines():
@@ -127,7 +129,7 @@ class OllamaProvider(BaseProvider):
             "gpt-oss:20b-cloud",
             "glm-4.6:cloud",
         ]
-        
+
         try:
             response = await self.client.get("/tags")
             response.raise_for_status()
@@ -139,4 +141,3 @@ class OllamaProvider(BaseProvider):
         except httpx.HTTPError as e:
             logger.error(f"Failed to list Ollama models: {e}")
             return cloud_models  # Return cloud models as fallback
-
