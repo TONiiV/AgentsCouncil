@@ -13,6 +13,10 @@ from app.providers.gemini_provider import GeminiProvider
 from app.providers.openai_provider import OpenAIProvider
 
 
+def test_provider_type_includes_google_oauth():
+    assert ProviderType.GOOGLE_OAUTH.value == "google_oauth"
+
+
 class TestBaseProvider:
     """Tests for BaseProvider abstract class."""
 

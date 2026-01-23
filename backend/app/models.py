@@ -17,6 +17,7 @@ class ProviderType(str, Enum):
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
     GEMINI = "gemini"
+    GOOGLE_OAUTH = "google_oauth"
     OLLAMA = "ollama"
 
 
