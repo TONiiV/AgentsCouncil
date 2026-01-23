@@ -1,6 +1,7 @@
 """
 Pytest Configuration and Shared Fixtures
 """
+
 from collections.abc import Generator
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4

@@ -1,6 +1,7 @@
 """
 AgentsCouncil Backend - Data Models
 """
+
 from datetime import datetime
 from enum import Enum
 from uuid import UUID, uuid4
@@ -9,8 +10,10 @@ from pydantic import BaseModel, Field
 
 # === Enums ===
 
+
 class ProviderType(str, Enum):
     """Supported AI providers."""
+
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
     GEMINI = "gemini"
@@ -19,6 +22,7 @@ class ProviderType(str, Enum):
 
 class RoleType(str, Enum):
     """Built-in agent roles/personas."""
+
     INVESTMENT_ADVISOR = "investment_advisor"
     PR_EXPERT = "pr_expert"
     POLITICS_EXPERT = "politics_expert"
@@ -30,6 +34,7 @@ class RoleType(str, Enum):
 
 class VoteType(str, Enum):
     """Vote options for each round."""
+
     AGREE = "agree"
     DISAGREE = "disagree"
     ABSTAIN = "abstain"
@@ -37,6 +42,7 @@ class VoteType(str, Enum):
 
 class DebateStatus(str, Enum):
     """Debate lifecycle states."""
+
     PENDING = "pending"
     IN_PROGRESS = "in_progress"
     CONSENSUS_REACHED = "consensus_reached"
@@ -47,8 +53,10 @@ class DebateStatus(str, Enum):
 
 # === Agent Models ===
 
+
 class AgentConfig(BaseModel):
     """Configuration for a single AI agent in the council."""
+
     id: UUID = Field(default_factory=uuid4)
     name: str
     provider: ProviderType
@@ -59,6 +67,7 @@ class AgentConfig(BaseModel):
 
 class AgentResponse(BaseModel):
     """A single response from an agent during debate."""
+
     agent_id: UUID
     agent_name: str
     role: RoleType
@@ -71,8 +80,10 @@ class AgentResponse(BaseModel):
 
 # === Council Models ===
 
+
 class CouncilConfig(BaseModel):
     """Configuration for a debate council."""
+
     id: UUID = Field(default_factory=uuid4)
     name: str
     agents: list[AgentConfig]
@@ -83,6 +94,7 @@ class CouncilConfig(BaseModel):
 
 class CouncilCreate(BaseModel):
     """Request model for creating a council."""
+
     name: str
     agents: list[AgentConfig]
     max_rounds: int = 5
@@ -91,8 +103,10 @@ class CouncilCreate(BaseModel):
 
 # === Debate Models ===
 
+
 class DebateRound(BaseModel):
     """A single round of debate."""
+
     round_number: int
     responses: list[AgentResponse] = []
     votes: dict[str, VoteType] = {}  # agent_id -> vote
@@ -103,6 +117,7 @@ class DebateRound(BaseModel):
 
 class Debate(BaseModel):
     """A complete debate session."""
+
     id: UUID = Field(default_factory=uuid4)
     council_id: UUID
     topic: str
@@ -119,12 +134,14 @@ class Debate(BaseModel):
 
 class DebateCreate(BaseModel):
     """Request model for starting a debate."""
+
     council_id: UUID
     topic: str
 
 
 class DebateUpdate(BaseModel):
     """WebSocket message for debate updates."""
+
     debate_id: UUID
     event_type: str  # "round_start", "agent_response", "agent_response_chunk", "vote", "consensus", "summary"
     data: dict
@@ -162,6 +179,5 @@ considering implementation challenges, scalability, security, and innovation opp
     RoleType.DEVILS_ADVOCATE: """You are the Devil's Advocate. Your role is to challenge assumptions, 
 identify weaknesses in arguments, and stress-test ideas. Present counterarguments, ask difficult questions, 
 and point out potential pitfalls that others might overlook. Be constructively critical.""" + STANCE_DIRECTIVE,
-
     RoleType.CUSTOM: "",  # Will use custom_prompt from AgentConfig
 }

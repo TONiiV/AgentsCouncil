@@ -1,6 +1,7 @@
 """
 AgentsCouncil Backend - Google Gemini Provider
 """
+
 import asyncio
 import logging
 from collections.abc import AsyncIterator
@@ -47,7 +48,7 @@ class GeminiProvider(BaseProvider):
                 error_str = str(e).lower()
                 if "429" in error_str or ("resource" in error_str and "exhausted" in error_str):
                     last_exception = e
-                    delay = min(self.BASE_DELAY * (2 ** attempt), self.MAX_DELAY)
+                    delay = min(self.BASE_DELAY * (2**attempt), self.MAX_DELAY)
                     logger.warning(
                         f"Rate limited (429). Attempt {attempt + 1}/{self.MAX_RETRIES}. "
                         f"Retrying in {delay:.1f}s..."
@@ -104,40 +105,40 @@ class GeminiProvider(BaseProvider):
                         max_output_tokens=max_tokens,
                     ),
                 )
-                
+
                 has_yielded = False
                 async for chunk in response_stream:
                     if chunk.text:
                         has_yielded = True
                         yield chunk.text
-                
+
                 # If we complete the stream successfully, return
                 return
 
             except Exception as e:
                 # If we already sent data to the caller, we can't retry as it would duplicate
                 # content or corrupt the stream. We must abort.
-                if 'has_yielded' in locals() and has_yielded:
+                if "has_yielded" in locals() and has_yielded:
                     logger.error(f"Stream failed after yielding data: {e}")
                     raise
 
                 # Check for rate limit errors
                 error_str = str(e).lower()
                 if "429" in error_str or ("resource" in error_str and "exhausted" in error_str):
-                    delay = min(self.BASE_DELAY * (2 ** attempt), self.MAX_DELAY)
+                    delay = min(self.BASE_DELAY * (2**attempt), self.MAX_DELAY)
                     logger.warning(
                         f"Stream rate limited (429). Attempt {attempt + 1}/{self.MAX_RETRIES}. "
                         f"Retrying in {delay:.1f}s..."
                     )
                     await asyncio.sleep(delay)
                     continue
-                
+
                 # Other errors - re-raise
                 logger.error(f"Gemini stream error: {e}")
                 raise
 
         # All retries exhausted
-        logger.error(f"Stream retries exhausted due to rate limiting")
+        logger.error("Stream retries exhausted due to rate limiting")
         raise Exception("Stream failed after max retries")
 
     async def list_models(self) -> list[str]:
