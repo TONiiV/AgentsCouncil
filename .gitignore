@@ -74,3 +74,6 @@ backend/data/storage.json
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
+
+# OpenCode
+.opencode/
