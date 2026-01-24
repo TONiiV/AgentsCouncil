@@ -8,7 +8,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import councils_router, debates_router, providers_router, websocket_router
+from app.api import auth_router, councils_router, debates_router, providers_router, websocket_router
 from app.config import get_settings
 from app.oauth_server import create_oauth_server
 from app.providers import ProviderRegistry
@@ -89,6 +89,7 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(auth_router, prefix="/api")
 app.include_router(councils_router, prefix="/api")
 app.include_router(debates_router, prefix="/api")
 app.include_router(providers_router, prefix="/api/providers")

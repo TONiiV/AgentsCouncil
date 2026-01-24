@@ -565,6 +565,53 @@ class SupabaseStorage:
             await conn.execute("DELETE FROM councils")
 
     @classmethod
+    async def claim_guest_data(cls, guest_id: str, owner_id: str) -> dict[str, int]:
+        """Claim guest data by transferring ownership.
+
+        Updates all councils and debates with the given guest_id to set owner_id
+        and clear guest_id.
+
+        Args:
+            guest_id: The guest ID to claim data from.
+            owner_id: The authenticated user ID to transfer ownership to.
+
+        Returns:
+            Dictionary with counts of updated councils and debates.
+        """
+        await cls._ensure_initialized()
+
+        async with cls._pool.acquire() as conn:
+            # Update councils
+            result = await conn.execute(
+                """
+                UPDATE councils
+                SET owner_id = $1, guest_id = NULL
+                WHERE guest_id = $2
+                """,
+                owner_id,
+                guest_id,
+            )
+            # Parse "UPDATE N" to get count
+            councils_updated = int(result.split()[-1]) if result else 0
+
+            # Update debates
+            result = await conn.execute(
+                """
+                UPDATE debates
+                SET owner_id = $1, guest_id = NULL
+                WHERE guest_id = $2
+                """,
+                owner_id,
+                guest_id,
+            )
+            debates_updated = int(result.split()[-1]) if result else 0
+
+        return {
+            "councils_updated": councils_updated,
+            "debates_updated": debates_updated,
+        }
+
+    @classmethod
     async def close(cls) -> None:
         """Close the connection pool."""
         if cls._pool:
