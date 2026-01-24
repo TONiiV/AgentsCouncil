@@ -641,10 +641,7 @@ class _AddAgentDialogState extends State<_AddAgentDialog> {
                 spacing: 8,
                 runSpacing: 8,
                 children: widget.availableProviders.map((p) {
-                  final provider = ProviderType.values.firstWhere(
-                    (pt) => pt.name == p,
-                    orElse: () => ProviderType.openai,
-                  );
+                  final provider = ProviderType.fromApiValue(p);
                   final isSelected = _selectedProvider == provider;
                   return GestureDetector(
                     onTap: () {
