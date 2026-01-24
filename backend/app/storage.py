@@ -299,7 +299,7 @@ class Storage:
                         1 if round_item.consensus_reached else 0,
                         vote_summary.get(VoteType.AGREE.value),
                         vote_summary.get(VoteType.DISAGREE.value),
-                        vote_summary.get(VoteType.ABSTAIN.value),
+                        0,  # Abstain removed
                         round_item.timestamp.isoformat(),
                     ),
                 )
@@ -443,7 +443,6 @@ class Storage:
                     vote_summary = {
                         VoteType.AGREE.value: round_row["vote_summary_agree"] or 0,
                         VoteType.DISAGREE.value: round_row["vote_summary_disagree"] or 0,
-                        VoteType.ABSTAIN.value: round_row["vote_summary_abstain"] or 0,
                     }
 
                 rounds.append(

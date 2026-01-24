@@ -102,8 +102,7 @@ enum RoleType {
 
 enum VoteType {
   agree,
-  disagree,
-  abstain;
+  disagree;
 
   String get displayName => name.toUpperCase();
 }
@@ -224,7 +223,8 @@ class CouncilConfig {
           .map((a) => AgentConfig.fromJson(a as Map<String, dynamic>))
           .toList(),
       maxRounds: json['max_rounds'] as int? ?? 5,
-      consensusThreshold: (json['consensus_threshold'] as num?)?.toDouble() ?? 0.8,
+      consensusThreshold:
+          (json['consensus_threshold'] as num?)?.toDouble() ?? 0.8,
     );
   }
 
@@ -274,12 +274,12 @@ class AgentResponse {
       vote: json['vote'] != null
           ? VoteType.values.firstWhere(
               (v) => v.name == json['vote'],
-              orElse: () => VoteType.abstain,
+              orElse: () => VoteType.disagree,
             )
           : null,
       reasoning: json['reasoning'] as String?,
-      timestamp: json['timestamp'] != null 
-          ? DateTime.tryParse(json['timestamp'] as String) 
+      timestamp: json['timestamp'] != null
+          ? DateTime.tryParse(json['timestamp'] as String)
           : null,
     );
   }
@@ -312,7 +312,7 @@ class DebateRound {
               k,
               VoteType.values.firstWhere(
                 (vt) => vt.name == v,
-                orElse: () => VoteType.abstain,
+                orElse: () => VoteType.disagree,
               ),
             ),
           ) ??
@@ -364,8 +364,8 @@ class Debate {
       summary: json['summary'] as String?,
       proPoints: (json['pro_points'] as List?)?.cast<String>() ?? [],
       againstPoints: (json['against_points'] as List?)?.cast<String>() ?? [],
-      createdAt: json['created_at'] != null 
-          ? DateTime.parse(json['created_at'] as String) 
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'] as String)
           : DateTime.now(),
     );
   }

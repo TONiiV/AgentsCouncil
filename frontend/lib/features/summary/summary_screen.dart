@@ -29,27 +29,28 @@ class SummaryScreen extends StatelessWidget {
             // Topic Header
             _buildTopicCard(context),
             const SizedBox(height: 28),
-            
+
             // Outcome Status
             _buildOutcomeCard(context),
             const SizedBox(height: 28),
-            
+
             // Pro/Con Points
-            if (debate.proPoints.isNotEmpty || debate.againstPoints.isNotEmpty) ...[
+            if (debate.proPoints.isNotEmpty ||
+                debate.againstPoints.isNotEmpty) ...[
               _buildProConSection(context),
               const SizedBox(height: 28),
             ],
-            
+
             // Main Summary
             if (debate.summary != null) ...[
               _buildSummaryCard(context),
               const SizedBox(height: 28),
             ],
-            
+
             // Debate Highlights
             _buildHighlightsSection(context),
             const SizedBox(height: 28),
-            
+
             // Vote Statistics
             _buildVoteStats(context),
           ],
@@ -72,9 +73,9 @@ class SummaryScreen extends StatelessWidget {
               Text(
                 'TOPIC',
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  letterSpacing: 1,
-                  color: CyberColors.neonCyan,
-                ),
+                      letterSpacing: 1,
+                      color: CyberColors.neonCyan,
+                    ),
               ),
             ],
           ),
@@ -92,10 +93,12 @@ class SummaryScreen extends StatelessWidget {
 
   Widget _buildOutcomeCard(BuildContext context) {
     final isConsensus = debate.status == DebateStatus.consensusReached;
-    final color = isConsensus ? CyberColors.successGreen : CyberColors.warningAmber;
+    final color =
+        isConsensus ? CyberColors.successGreen : CyberColors.warningAmber;
     final icon = isConsensus ? Icons.check_circle : Icons.timer_off;
-    final statusText = isConsensus ? 'Consensus Reached' : 'Round Limit Reached';
-    
+    final statusText =
+        isConsensus ? 'Consensus Reached' : 'Round Limit Reached';
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -141,8 +144,8 @@ class SummaryScreen extends StatelessWidget {
                 Text(
                   statusText,
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: color,
-                  ),
+                        color: color,
+                      ),
                 ),
               ],
             ),
@@ -174,14 +177,15 @@ class SummaryScreen extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth > 600;
-        
+
         if (isWide) {
           return Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (debate.proPoints.isNotEmpty)
                 Expanded(child: _buildProCard(context)),
-              if (debate.proPoints.isNotEmpty && debate.againstPoints.isNotEmpty)
+              if (debate.proPoints.isNotEmpty &&
+                  debate.againstPoints.isNotEmpty)
                 const SizedBox(width: 16),
               if (debate.againstPoints.isNotEmpty)
                 Expanded(child: _buildConCard(context)),
@@ -191,7 +195,8 @@ class SummaryScreen extends StatelessWidget {
           return Column(
             children: [
               if (debate.proPoints.isNotEmpty) _buildProCard(context),
-              if (debate.proPoints.isNotEmpty && debate.againstPoints.isNotEmpty)
+              if (debate.proPoints.isNotEmpty &&
+                  debate.againstPoints.isNotEmpty)
                 const SizedBox(height: 16),
               if (debate.againstPoints.isNotEmpty) _buildConCard(context),
             ],
@@ -230,7 +235,8 @@ class SummaryScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          ...debate.proPoints.map((p) => _buildPoint(p, CyberColors.successGreen)),
+          ...debate.proPoints
+              .map((p) => _buildPoint(p, CyberColors.successGreen)),
         ],
       ),
     );
@@ -265,7 +271,8 @@ class SummaryScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          ...debate.againstPoints.map((p) => _buildPoint(p, CyberColors.errorRed)),
+          ...debate.againstPoints
+              .map((p) => _buildPoint(p, CyberColors.errorRed)),
         ],
       ),
     );
@@ -313,9 +320,9 @@ class SummaryScreen extends StatelessWidget {
               Text(
                 'SUMMARY',
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  letterSpacing: 1,
-                  color: CyberColors.holoPurple,
-                ),
+                      letterSpacing: 1,
+                      color: CyberColors.holoPurple,
+                    ),
               ),
             ],
           ),
@@ -356,9 +363,9 @@ class SummaryScreen extends StatelessWidget {
             Text(
               'KEY MOMENTS',
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                letterSpacing: 1,
-                color: CyberColors.electricPink,
-              ),
+                    letterSpacing: 1,
+                    color: CyberColors.electricPink,
+                  ),
             ),
           ],
         ),
@@ -380,7 +387,7 @@ class SummaryScreen extends StatelessWidget {
 
   List<_HighlightData> _extractHighlights() {
     final highlights = <_HighlightData>[];
-    
+
     for (final round in debate.rounds) {
       for (final response in round.responses) {
         // Take first sentence or first 150 chars as highlight
@@ -391,7 +398,7 @@ class SummaryScreen extends StatelessWidget {
         } else if (content.length > 150) {
           content = '${content.substring(0, 147)}...';
         }
-        
+
         highlights.add(_HighlightData(
           agentName: response.agentName,
           role: response.role,
@@ -401,14 +408,14 @@ class SummaryScreen extends StatelessWidget {
         ));
       }
     }
-    
+
     // Return up to 6 highlights
     return highlights.take(6).toList();
   }
 
   Widget _buildHighlightCard(BuildContext context, _HighlightData highlight) {
     final providerColor = _getProviderColor(highlight.provider);
-    
+
     return Container(
       width: 300,
       margin: const EdgeInsets.only(right: 12),
@@ -471,16 +478,15 @@ class SummaryScreen extends StatelessWidget {
 
   Widget _buildVoteStats(BuildContext context) {
     // Calculate total votes
-    int agree = 0, disagree = 0, abstain = 0;
+    int agree = 0, disagree = 0;
     for (final round in debate.rounds) {
       if (round.voteSummary != null) {
         agree += round.voteSummary!['agree'] ?? 0;
         disagree += round.voteSummary!['disagree'] ?? 0;
-        abstain += round.voteSummary!['abstain'] ?? 0;
       }
     }
-    
-    final total = agree + disagree + abstain;
+
+    final total = agree + disagree;
     if (total == 0) return const SizedBox.shrink();
 
     return Column(
@@ -493,9 +499,9 @@ class SummaryScreen extends StatelessWidget {
             Text(
               'VOTE BREAKDOWN',
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                letterSpacing: 1,
-                color: CyberColors.neonCyan,
-              ),
+                    letterSpacing: 1,
+                    color: CyberColors.neonCyan,
+                  ),
             ),
           ],
         ),
@@ -504,14 +510,15 @@ class SummaryScreen extends StatelessWidget {
           showHoverGlow: false,
           child: Column(
             children: [
-              _buildVoteBar(agree, disagree, abstain, total),
+              _buildVoteBar(agree, disagree, total),
               const SizedBox(height: 20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  _buildVoteStat('Agree', agree, CyberColors.successGreen, total),
-                  _buildVoteStat('Disagree', disagree, CyberColors.errorRed, total),
-                  _buildVoteStat('Abstain', abstain, CyberColors.textMuted, total),
+                  _buildVoteStat(
+                      'Agree', agree, CyberColors.successGreen, total),
+                  _buildVoteStat(
+                      'Disagree', disagree, CyberColors.errorRed, total),
                 ],
               ),
             ],
@@ -521,7 +528,7 @@ class SummaryScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildVoteBar(int agree, int disagree, int abstain, int total) {
+  Widget _buildVoteBar(int agree, int disagree, int total) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(8),
       child: SizedBox(
@@ -548,11 +555,6 @@ class SummaryScreen extends StatelessWidget {
                 flex: disagree,
                 child: Container(color: CyberColors.errorRed),
               ),
-            if (abstain > 0)
-              Expanded(
-                flex: abstain,
-                child: Container(color: CyberColors.midnightBorder),
-              ),
           ],
         ),
       ),
@@ -561,7 +563,7 @@ class SummaryScreen extends StatelessWidget {
 
   Widget _buildVoteStat(String label, int value, Color color, int total) {
     final percent = total > 0 ? (value / total * 100).round() : 0;
-    
+
     return Column(
       children: [
         GlowText(

@@ -111,7 +111,7 @@ def completed_debate(sample_council) -> Debate:
     round1 = DebateRound(
         round_number=1,
         votes={"agent1": VoteType.AGREE, "agent2": VoteType.AGREE},
-        vote_summary={"agree": 2, "disagree": 0, "abstain": 0},
+        vote_summary={"agree": 2, "disagree": 0},
         consensus_reached=True,
     )
     debate.rounds.append(round1)
@@ -127,4 +127,3 @@ def mock_provider():
     provider.generate = AsyncMock(return_value="This is a mock response from the AI.")
     provider.get_system_prompt = MagicMock(return_value="You are a test assistant.")
     return provider
-

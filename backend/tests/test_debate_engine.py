@@ -97,30 +97,14 @@ class TestDebateEngineVoting:
 
         assert summary["agree"] == 2
         assert summary["disagree"] == 1
-        assert summary["abstain"] == 0
-
-    def test_calculate_vote_summary_with_abstain(self, sample_council):
-        """Test calculating vote summary with abstain votes."""
-        engine = DebateEngine(sample_council, "Test topic")
-
-        votes = {
-            "agent1": VoteType.AGREE,
-            "agent2": VoteType.ABSTAIN,
-            "agent3": VoteType.ABSTAIN,
-        }
-
-        summary = engine._calculate_vote_summary(votes)
-
-        assert summary["agree"] == 1
-        assert summary["disagree"] == 0
-        assert summary["abstain"] == 2
+        assert "abstain" not in summary
 
     def test_check_consensus_reached(self, sample_council):
         """Test consensus is reached when threshold is met."""
         engine = DebateEngine(sample_council, "Test topic")
 
         # 80% threshold (from sample_council)
-        vote_summary = {"agree": 4, "disagree": 1, "abstain": 0}
+        vote_summary = {"agree": 4, "disagree": 1}
 
         assert engine._check_consensus(vote_summary) is True
 
@@ -128,7 +112,7 @@ class TestDebateEngineVoting:
         """Test consensus is not reached below threshold."""
         engine = DebateEngine(sample_council, "Test topic")
 
-        vote_summary = {"agree": 1, "disagree": 1, "abstain": 0}
+        vote_summary = {"agree": 1, "disagree": 1}
 
         assert engine._check_consensus(vote_summary) is False
 
@@ -136,7 +120,7 @@ class TestDebateEngineVoting:
         """Test consensus calculation with no votes."""
         engine = DebateEngine(sample_council, "Test topic")
 
-        vote_summary = {"agree": 0, "disagree": 0, "abstain": 0}
+        vote_summary = {"agree": 0, "disagree": 0}
 
         assert engine._check_consensus(vote_summary) is False
 
@@ -169,7 +153,7 @@ class TestDebateEngineContext:
                     content="This is agent 1's response.",
                 )
             ],
-            vote_summary={"agree": 1, "disagree": 0, "abstain": 0},
+            vote_summary={"agree": 1, "disagree": 0},
         )
         engine.debate.rounds.append(round1)
 
@@ -302,8 +286,8 @@ class TestVoteParsingLogic:
             assert result.vote == VoteType.DISAGREE
 
     @pytest.mark.asyncio
-    async def test_parse_abstain_default(self, sample_council, mock_provider):
-        """Test that unparseable votes default to ABSTAIN."""
+    async def test_parse_unparseable_defaults_to_disagree(self, sample_council, mock_provider):
+        """Test that unparseable votes default to DISAGREE."""
         with patch("app.core.debate_engine.ProviderRegistry") as mock_registry:
             mock_registry.get.return_value = mock_provider
             mock_provider.generate = AsyncMock(return_value="I'm not sure how to vote on this.")
@@ -314,7 +298,7 @@ class TestVoteParsingLogic:
 
             result = await engine._get_agent_vote(agent, responses)
 
-            assert result.vote == VoteType.ABSTAIN
+            assert result.vote == VoteType.DISAGREE
 
 
 class TestDebateEngineToolCallEvents:

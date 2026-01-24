@@ -160,7 +160,7 @@ Return ONLY a numbered list, one argument per line. Be concise (max 2 sentences 
             votes = r.vote_summary or {}
             rounds_summary.append(
                 f"- Round {r.round_number}: Agree({votes.get('agree', 0)}), "
-                f"Disagree({votes.get('disagree', 0)}), Abstain({votes.get('abstain', 0)})"
+                f"Disagree({votes.get('disagree', 0)})"
             )
 
         return f"""# Debate Summary

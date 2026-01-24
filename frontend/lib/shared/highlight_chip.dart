@@ -146,8 +146,7 @@ class VoteChip extends StatelessWidget {
 
 enum VoteStatus {
   agree,
-  disagree,
-  abstain;
+  disagree;
 
   Color get color {
     switch (this) {
@@ -155,8 +154,6 @@ enum VoteStatus {
         return CyberColors.successGreen;
       case VoteStatus.disagree:
         return CyberColors.errorRed;
-      case VoteStatus.abstain:
-        return CyberColors.textMuted;
     }
   }
 
@@ -166,8 +163,6 @@ enum VoteStatus {
         return Icons.check_circle_outline;
       case VoteStatus.disagree:
         return Icons.cancel_outlined;
-      case VoteStatus.abstain:
-        return Icons.remove_circle_outline;
     }
   }
 
@@ -177,8 +172,6 @@ enum VoteStatus {
         return 'AGREE';
       case VoteStatus.disagree:
         return 'DISAGREE';
-      case VoteStatus.abstain:
-        return 'ABSTAIN';
     }
   }
 }
@@ -315,7 +308,7 @@ class _StatusIndicatorState extends State<StatusIndicator>
 
   @override
   Widget build(BuildContext context) {
-    final color = widget.activeColor ?? 
+    final color = widget.activeColor ??
         (widget.isActive ? CyberColors.successGreen : CyberColors.textMuted);
 
     return Row(

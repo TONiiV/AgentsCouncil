@@ -43,7 +43,6 @@ class TestEnums:
         """Test VoteType enum values."""
         assert VoteType.AGREE.value == "agree"
         assert VoteType.DISAGREE.value == "disagree"
-        assert VoteType.ABSTAIN.value == "abstain"
 
     def test_debate_status_values(self):
         """Test DebateStatus enum values."""
@@ -189,7 +188,7 @@ class TestDebateRound:
         round_data = DebateRound(
             round_number=2,
             votes={"agent1": VoteType.AGREE, "agent2": VoteType.DISAGREE},
-            vote_summary={"agree": 1, "disagree": 1, "abstain": 0},
+            vote_summary={"agree": 1, "disagree": 1},
         )
         assert round_data.vote_summary["agree"] == 1
         assert round_data.vote_summary["disagree"] == 1

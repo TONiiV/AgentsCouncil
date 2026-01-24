@@ -44,11 +44,11 @@ class _SimChatWidgetState extends State<SimChatWidget> {
   final ScrollController _scrollController = ScrollController();
   final List<ChatMessage> _messages = [];
   StreamSubscription? _subscription;
-  
+
   // Track MULTIPLE streaming agents by agent_id (for parallel execution)
   final Map<String, StreamingAgent> _streamingAgents = {};
   int _insertionCounter = 0; // Track order of agent insertion
-  
+
   @override
   void initState() {
     super.initState();
@@ -65,13 +65,13 @@ class _SimChatWidgetState extends State<SimChatWidget> {
     }
     // Handle initial responses update if needed (mostly for first load)
     if (widget.initialResponses.length != oldWidget.initialResponses.length) {
-       // Ideally we merge, but for now let's just rely on stream for live updates
-       // and initial load for history.
-       // logic to append new history could go here if we weren't validly streaming everything
-       // But assuming full reload on re-enter, we might want to re-init if list was empty.
-       if (_messages.isEmpty && widget.initialResponses.isNotEmpty) {
-         _initializeMessages();
-       }
+      // Ideally we merge, but for now let's just rely on stream for live updates
+      // and initial load for history.
+      // logic to append new history could go here if we weren't validly streaming everything
+      // But assuming full reload on re-enter, we might want to re-init if list was empty.
+      if (_messages.isEmpty && widget.initialResponses.isNotEmpty) {
+        _initializeMessages();
+      }
     }
   }
 
@@ -104,25 +104,29 @@ class _SimChatWidgetState extends State<SimChatWidget> {
         } else if (type == 'agent_response') {
           _handleResponseComplete(data);
         } else if (type == 'debate_start') {
-           _addModeratorMessage('📢 Debate Started', 'Topic: ${data['topic']}');
+          _addModeratorMessage('📢 Debate Started', 'Topic: ${data['topic']}');
         } else if (type == 'round_start') {
-           _addModeratorMessage('🔄 Round ${data['round']}', 'All agents are now deliberating...');
+          _addModeratorMessage('🔄 Round ${data['round']}',
+              'All agents are now deliberating...');
         } else if (type == 'vote') {
-           _handleVote(data);
+          _handleVote(data);
         } else if (type == 'round_complete') {
-           final consensus = data['consensus'] == true;
-           final summary = data['vote_summary'] as Map<String, dynamic>?;
-           final votes = summary != null 
-               ? 'Agree: ${summary['agree']}, Disagree: ${summary['disagree']}, Abstain: ${summary['abstain']}'
-               : '';
-           _addModeratorMessage(
-             consensus ? '✅ Consensus Reached!' : '⏳ Round ${data['round']} Complete',
-             votes,
-           );
+          final consensus = data['consensus'] == true;
+          final summary = data['vote_summary'] as Map<String, dynamic>?;
+          final votes = summary != null
+              ? 'Agree: ${summary['agree']}, Disagree: ${summary['disagree']}, Abstain: ${summary['abstain']}'
+              : '';
+          _addModeratorMessage(
+            consensus
+                ? '✅ Consensus Reached!'
+                : '⏳ Round ${data['round']} Complete',
+            votes,
+          );
         } else if (type == 'debate_complete') {
-           final status = data['status'];
-           final statusIcon = status == 'consensus_reached' ? '🎉' : '🏁';
-           _addModeratorMessage('$statusIcon Debate Concluded', 'Final status: $status');
+          final status = data['status'];
+          final statusIcon = status == 'consensus_reached' ? '🎉' : '🏁';
+          _addModeratorMessage(
+              '$statusIcon Debate Concluded', 'Final status: $status');
         }
       }
     });
@@ -132,12 +136,13 @@ class _SimChatWidgetState extends State<SimChatWidget> {
     setState(() {
       final agentId = data['agent_id'] as String;
       final content = data['full_content_so_far'] ?? '';
-      
+
       if (_streamingAgents.containsKey(agentId)) {
         // Update existing streaming agent
         _streamingAgents[agentId]!.content = content;
         _streamingAgents[agentId]!.role ??= _parseRole(data['role']);
-        _streamingAgents[agentId]!.provider ??= _parseProvider(data['provider']);
+        _streamingAgents[agentId]!.provider ??=
+            _parseProvider(data['provider']);
       } else {
         // New streaming agent with insertion order
         _streamingAgents[agentId] = StreamingAgent(
@@ -187,7 +192,7 @@ class _SimChatWidgetState extends State<SimChatWidget> {
   void _handleResponseComplete(Map<String, dynamic> data) {
     setState(() {
       final agentId = data['agent_id'] as String;
-      
+
       // Finalize message with role/provider from event data
       _messages.add(ChatMessage(
         agentName: data['agent_name'],
@@ -197,13 +202,13 @@ class _SimChatWidgetState extends State<SimChatWidget> {
         provider: _parseProvider(data['provider']),
         timestamp: DateTime.now(),
       ));
-      
+
       // Remove from streaming agents
       _streamingAgents.remove(agentId);
     });
     _scrollToBottom();
   }
-  
+
   void _handleVote(Map<String, dynamic> data) {
     // Add a specialized small message for vote?
     // Or just a system message
@@ -238,6 +243,7 @@ class _SimChatWidgetState extends State<SimChatWidget> {
     });
     _scrollToBottom();
   }
+
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
@@ -262,7 +268,7 @@ class _SimChatWidgetState extends State<SimChatWidget> {
     // Build list of streaming agents sorted by insertion order (preserves start order)
     final streamingList = _streamingAgents.values.toList()
       ..sort((a, b) => a.insertionOrder.compareTo(b.insertionOrder));
-    
+
     return ListView.builder(
       controller: _scrollController,
       padding: const EdgeInsets.all(16),
@@ -278,9 +284,6 @@ class _SimChatWidgetState extends State<SimChatWidget> {
       },
     );
   }
-
-
-
 
   Widget _buildMessageItem(ChatMessage message) {
     // Moderator messages (enhanced system messages)
@@ -346,81 +349,121 @@ class _SimChatWidgetState extends State<SimChatWidget> {
       );
     }
 
+    final isDisagree = message.vote == VoteType.disagree;
+    final align = isDisagree ? MainAxisAlignment.end : MainAxisAlignment.start;
+    final bubbleColor = isDisagree
+        ? CyberColors.errorRed.withOpacity(0.1)
+        : message.vote == VoteType.agree
+            ? CyberColors.successGreen.withOpacity(0.1)
+            : CyberColors.midnightCard;
 
-    final isMe = false; // Always left aligned for now as we represent multiple agents
-    
+    final borderColor = isDisagree
+        ? CyberColors.errorRed.withOpacity(0.5)
+        : message.vote == VoteType.agree
+            ? CyberColors.successGreen.withOpacity(0.5)
+            : _getProviderColor(message.provider).withOpacity(0.3);
+
+    final avatar = _buildAvatar(message);
+
+    final messageContent = Column(
+      crossAxisAlignment:
+          isDisagree ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isDisagree) ...[
+              Text(message.vote?.displayName ?? "",
+                  style: TextStyle(
+                      fontSize: 10,
+                      color: _getVoteColor(message.vote),
+                      fontWeight: FontWeight.bold)),
+              const SizedBox(width: 8),
+            ],
+            Text(
+              message.agentName,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: CyberColors.textPrimary,
+              ),
+            ),
+            if (!isDisagree) ...[
+              const SizedBox(width: 8),
+              Text(message.vote?.displayName ?? "",
+                  style: TextStyle(
+                      fontSize: 10,
+                      color: _getVoteColor(message.vote),
+                      fontWeight: FontWeight.bold)),
+            ],
+          ],
+        ),
+        const SizedBox(height: 4),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: bubbleColor,
+            borderRadius: BorderRadius.only(
+              topLeft: isDisagree
+                  ? const Radius.circular(12)
+                  : const Radius.circular(0),
+              topRight: isDisagree
+                  ? const Radius.circular(0)
+                  : const Radius.circular(12),
+              bottomLeft: const Radius.circular(12),
+              bottomRight: const Radius.circular(12),
+            ),
+            border: Border.all(color: borderColor),
+            boxShadow: [
+              BoxShadow(
+                color: (message.vote == VoteType.agree
+                        ? CyberColors.successGreen
+                        : (message.vote == VoteType.disagree
+                            ? CyberColors.errorRed
+                            : _getProviderColor(message.provider)))
+                    .withOpacity(0.05),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: MarkdownBody(
+            data: message.content,
+            styleSheet: _cyberMarkdownStyleSheet(context),
+            selectable: true,
+            shrinkWrap: true,
+          ),
+        ),
+      ],
+    );
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
+        mainAxisAlignment: align,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildAvatar(message),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      message.agentName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: CyberColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      message.vote?.displayName ?? "", 
-                      style: TextStyle(
-                        fontSize: 10, 
-                        color: _getVoteColor(message.vote),
-                        fontWeight: FontWeight.bold
-                      )
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: CyberColors.midnightCard,
-                    borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(0),
-                      topRight: const Radius.circular(12),
-                      bottomLeft: const Radius.circular(12),
-                      bottomRight: const Radius.circular(12),
-                    ),
-                    border: Border.all(color: _getProviderColor(message.provider).withOpacity(0.3)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: _getProviderColor(message.provider).withOpacity(0.05),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: MarkdownBody(
-                    data: message.content,
-                    styleSheet: _cyberMarkdownStyleSheet(context),
-                    selectable: true,
-                    shrinkWrap: true,
-                  ),
-                ),
-              ],
-            ),
+          if (!isDisagree) ...[
+            avatar,
+            const SizedBox(width: 12),
+          ],
+          Flexible(
+            child: messageContent,
           ),
+          if (isDisagree) ...[
+            const SizedBox(width: 12),
+            avatar,
+          ],
         ],
       ),
     );
   }
-  
+
   Widget _buildStreamingItem(StreamingAgent agent) {
-    final providerColor = agent.provider != null 
-        ? _getProviderColor(agent.provider!) 
+    final providerColor = agent.provider != null
+        ? _getProviderColor(agent.provider!)
         : CyberColors.neonCyan;
     final roleIcon = agent.role?.icon ?? '💬';
-    
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
@@ -487,7 +530,6 @@ class _SimChatWidgetState extends State<SimChatWidget> {
     );
   }
 
-
   Widget _buildThinkingIndicator(Color color) {
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -503,7 +545,8 @@ class _SimChatWidgetState extends State<SimChatWidget> {
         const SizedBox(width: 8),
         Text(
           'Thinking...',
-          style: TextStyle(color: color.withOpacity(0.7), fontStyle: FontStyle.italic),
+          style: TextStyle(
+              color: color.withOpacity(0.7), fontStyle: FontStyle.italic),
         ),
       ],
     );
@@ -544,22 +587,28 @@ class _SimChatWidgetState extends State<SimChatWidget> {
       ),
     );
   }
-  
+
   Color _getProviderColor(ProviderType provider) {
     switch (provider) {
-      case ProviderType.openai: return CyberColors.openaiGreen;
-      case ProviderType.anthropic: return CyberColors.anthropicOrange;
-      case ProviderType.gemini: return CyberColors.geminiBlue;
-      case ProviderType.ollama: return CyberColors.ollamaYellow;
+      case ProviderType.openai:
+        return CyberColors.openaiGreen;
+      case ProviderType.anthropic:
+        return CyberColors.anthropicOrange;
+      case ProviderType.gemini:
+        return CyberColors.geminiBlue;
+      case ProviderType.ollama:
+        return CyberColors.ollamaYellow;
     }
   }
 
   Color _getVoteColor(VoteType? vote) {
     switch (vote) {
-      case VoteType.agree: return CyberColors.successGreen;
-      case VoteType.disagree: return CyberColors.errorRed;
-      case VoteType.abstain: return CyberColors.textMuted;
-      case null: return Colors.transparent;
+      case VoteType.agree:
+        return CyberColors.successGreen;
+      case VoteType.disagree:
+        return CyberColors.errorRed;
+      case null:
+        return Colors.transparent;
     }
   }
 
@@ -646,4 +695,3 @@ class ChatMessage {
     required this.timestamp,
   });
 }
-

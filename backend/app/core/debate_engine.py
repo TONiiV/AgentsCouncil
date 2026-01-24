@@ -330,12 +330,12 @@ You must vote on whether consensus has been reached based on the discussion."""
 
 Please vote and explain your reasoning.
 Respond in this exact format:
-VOTE: [AGREE/DISAGREE/ABSTAIN]
+VOTE: [AGREE/DISAGREE]
 REASONING: [Your brief explanation]
 
 Vote AGREE if you believe the council is converging on a reasonable conclusion.
 Vote DISAGREE if you have significant concerns that need further discussion.
-Vote ABSTAIN if you're uncertain or need more information.
+You must choose sides. Abstaining is not allowed.
 """
 
         try:
@@ -354,7 +354,7 @@ Vote ABSTAIN if you're uncertain or need more information.
             raise TimeoutError(f"Agent {agent.name} failed to vote in time")
 
         # Parse vote from response
-        vote = VoteType.ABSTAIN
+        vote = VoteType.DISAGREE
         reasoning = response_text
 
         if "VOTE:" in response_text:
@@ -380,7 +380,7 @@ Vote ABSTAIN if you're uncertain or need more information.
 
     def _calculate_vote_summary(self, votes: dict[str, VoteType]) -> dict[str, int]:
         """Calculate vote counts."""
-        summary = {"agree": 0, "disagree": 0, "abstain": 0}
+        summary = {"agree": 0, "disagree": 0}
         for vote in votes.values():
             summary[vote.value] += 1
         return summary

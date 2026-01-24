@@ -60,7 +60,7 @@ class TestModeratorService:
                 "agent1": VoteType.AGREE,
                 "agent2": VoteType.AGREE,
             },
-            vote_summary={"agree": 2, "disagree": 0, "abstain": 0},
+            vote_summary={"agree": 2, "disagree": 0},
             consensus_reached=True,
         )
         debate.rounds.append(round1)

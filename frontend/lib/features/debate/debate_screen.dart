@@ -23,7 +23,7 @@ class DebateScreen extends ConsumerStatefulWidget {
 class _DebateScreenState extends ConsumerState<DebateScreen> {
   final _api = ApiService();
   final _wsService = WebSocketService();
-  
+
   Debate? _debate;
   bool _isLoading = true;
   String? _error;
@@ -45,7 +45,6 @@ class _DebateScreenState extends ConsumerState<DebateScreen> {
     _wsService.disconnect();
     super.dispose();
   }
-
 
   void _connectWebSocket() {
     _wsService.connect(widget.debateId);
@@ -124,7 +123,8 @@ class _DebateScreenState extends ConsumerState<DebateScreen> {
             child: TextButton.icon(
               onPressed: _cancelDebate,
               icon: Icon(Icons.stop, color: CyberColors.errorRed, size: 18),
-              label: Text('Stop', style: TextStyle(color: CyberColors.errorRed)),
+              label:
+                  Text('Stop', style: TextStyle(color: CyberColors.errorRed)),
             ),
           ),
       ],
@@ -203,7 +203,7 @@ class _DebateScreenState extends ConsumerState<DebateScreen> {
     final debate = _debate!;
     final isComplete = debate.status.isComplete;
     final isError = debate.status == DebateStatus.error;
-    
+
     Color statusColor;
     if (isComplete) {
       statusColor = CyberColors.successGreen;
@@ -261,7 +261,7 @@ class _DebateScreenState extends ConsumerState<DebateScreen> {
             ),
           ),
           const SizedBox(width: 20),
-          
+
           // Round Counter
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -284,9 +284,9 @@ class _DebateScreenState extends ConsumerState<DebateScreen> {
               ],
             ),
           ),
-          
+
           const Spacer(),
-          
+
           // Response Count
           if (debate.rounds.isNotEmpty)
             Text(
@@ -327,7 +327,8 @@ class _DebateScreenState extends ConsumerState<DebateScreen> {
               child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                     decoration: BoxDecoration(
                       gradient: CyberGradients.accent,
                       borderRadius: BorderRadius.circular(20),
@@ -343,18 +344,18 @@ class _DebateScreenState extends ConsumerState<DebateScreen> {
                     ),
                   ),
                   const Spacer(),
-                  if (round.voteSummary != null) _buildVoteSummary(round.voteSummary!),
+                  if (round.voteSummary != null)
+                    _buildVoteSummary(round.voteSummary!),
                 ],
               ),
             ),
-            
+
             // Agent Responses
             Padding(
               padding: const EdgeInsets.all(12),
               child: Column(
-                children: round.responses
-                    .map((r) => _buildResponseCard(r))
-                    .toList(),
+                children:
+                    round.responses.map((r) => _buildResponseCard(r)).toList(),
               ),
             ),
           ],
@@ -377,12 +378,6 @@ class _DebateScreenState extends ConsumerState<DebateScreen> {
           icon: Icons.close,
           count: summary['disagree'] ?? 0,
           color: CyberColors.errorRed,
-        ),
-        const SizedBox(width: 8),
-        _VoteBadge(
-          icon: Icons.remove,
-          count: summary['abstain'] ?? 0,
-          color: CyberColors.textMuted,
         ),
       ],
     );
@@ -415,7 +410,8 @@ class _DebateScreenState extends ConsumerState<DebateScreen> {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Center(
-                  child: Text(response.role.icon, style: const TextStyle(fontSize: 18)),
+                  child: Text(response.role.icon,
+                      style: const TextStyle(fontSize: 18)),
                 ),
               ),
               const SizedBox(width: 12),
@@ -455,13 +451,13 @@ class _DebateScreenState extends ConsumerState<DebateScreen> {
             ],
           ),
           const SizedBox(height: 14),
-          
+
           // Response Content
           Text(
             response.content,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              height: 1.7,
-            ),
+                  height: 1.7,
+                ),
           ),
         ],
       ),
@@ -487,8 +483,6 @@ class _DebateScreenState extends ConsumerState<DebateScreen> {
         return VoteStatus.agree;
       case VoteType.disagree:
         return VoteStatus.disagree;
-      case VoteType.abstain:
-        return VoteStatus.abstain;
     }
   }
 

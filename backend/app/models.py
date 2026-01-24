@@ -39,7 +39,6 @@ class VoteType(str, Enum):
 
     AGREE = "agree"
     DISAGREE = "disagree"
-    ABSTAIN = "abstain"
 
 
 class DebateStatus(str, Enum):
