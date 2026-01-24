@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'features/auth/auth_screen.dart';
 import 'features/home/home_screen.dart';
 import 'app/theme.dart';
 import 'shared/theme_switcher.dart';
@@ -92,34 +93,5 @@ class AuthGate extends ConsumerWidget {
 
     // Show auth screen if not signed in
     return const AuthScreen();
-  }
-}
-
-/// Simple auth screen placeholder - will be expanded in Task 8
-class AuthScreen extends ConsumerWidget {
-  const AuthScreen({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text(
-              'Welcome to AgentsCouncil',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 32),
-            ElevatedButton(
-              onPressed: () {
-                ref.read(authProvider.notifier).continueAsGuest();
-              },
-              child: const Text('Continue as Guest'),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }

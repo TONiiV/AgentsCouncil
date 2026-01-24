@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../app/config.dart';
+import 'api_service.dart';
 
 /// Auth state that tracks both Supabase session and guest mode
 class AuthState {
@@ -63,6 +64,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final prefs = await SharedPreferences.getInstance();
       final guestId = prefs.getString(_guestIdKey);
 
+      // Set guest ID on API service for auth headers (if no session)
+      if (session == null && guestId != null) {
+        ApiService().setGuestId(guestId);
+      }
+
       state = AuthState(
         session: session,
         guestId: guestId,
@@ -70,11 +76,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
 
       // Listen to auth state changes
-      Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
         state = state.copyWith(
           session: data.session,
           clearSession: data.session == null,
         );
+
+        // If user just signed in and had guest data, offer to claim it
+        if (data.session != null && state.guestId != null) {
+          await _claimGuestData();
+        }
       });
     } catch (e) {
       state = AuthState(
@@ -97,10 +108,33 @@ class AuthNotifier extends StateNotifier<AuthState> {
         await prefs.setString(_guestIdKey, guestId);
       }
 
+      // Set guest ID on API service for auth headers
+      ApiService().setGuestId(guestId);
+
       state = state.copyWith(
         guestId: guestId,
         isLoading: false,
       );
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      );
+    }
+  }
+
+  /// Sign in with OAuth provider (Google or GitHub)
+  Future<void> signInWithOAuth(OAuthProvider provider) async {
+    try {
+      state = state.copyWith(isLoading: true, clearError: true);
+
+      await Supabase.instance.client.auth.signInWithOAuth(
+        provider,
+        redirectTo: 'io.supabase.agentscouncil://login-callback',
+      );
+
+      // Auth state will be updated via the onAuthStateChange listener
+      state = state.copyWith(isLoading: false);
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
@@ -119,7 +153,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
         await Supabase.instance.client.auth.signOut();
       }
 
-      // Clear guest ID
+      // Clear guest ID from API service
+      ApiService().setGuestId(null);
+
+      // Clear guest ID from local storage
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_guestIdKey);
 
@@ -129,6 +166,31 @@ class AuthNotifier extends StateNotifier<AuthState> {
         isLoading: false,
         error: e.toString(),
       );
+    }
+  }
+
+  /// Claim guest data when user signs in with OAuth
+  Future<void> _claimGuestData() async {
+    if (state.guestId == null || state.session == null) return;
+
+    try {
+      // Call backend to claim guest data
+      await ApiService().claimGuestData(state.guestId!);
+
+      // Clear guest ID from API service since we're now authenticated
+      ApiService().setGuestId(null);
+
+      // Clear guest ID from local storage
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_guestIdKey);
+
+      // Update state to clear guest ID
+      state = state.copyWith(clearGuestId: true);
+    } catch (e) {
+      // Log error but don't fail the sign-in
+      // The user is still authenticated, just without migrated data
+      // ignore: avoid_print
+      print('Failed to claim guest data: $e');
     }
   }
 

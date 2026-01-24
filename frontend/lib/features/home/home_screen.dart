@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/theme.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
+import '../../services/auth_service.dart';
 import '../../shared/shared.dart';
 import '../council_setup/council_setup_screen.dart';
 import '../debate/debate_screen.dart';
 import '../council/council_details_screen.dart';
+import '../settings/settings_screen.dart';
 
 /// Home screen with council management and cyber retro design
 class HomeScreen extends ConsumerStatefulWidget {
@@ -36,7 +38,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final isHealthy = await _api.checkHealth();
       if (!isHealthy) {
         setState(() {
-          _error = 'Backend server is not running.\n\nStart it with:\ncd backend && uvicorn app.main:app --reload';
+          _error =
+              'Backend server is not running.\n\nStart it with:\ncd backend && uvicorn app.main:app --reload';
           _isLoading = false;
         });
         return;
@@ -136,9 +139,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   children: [
                     GlowText(
                       'AgentsCouncil',
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style:
+                          Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
                       glowColor: CyberColors.neonCyan,
                       blurRadius: 6,
                     ),
@@ -146,8 +150,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     Text(
                       'AI-Powered Multi-Agent Debate Platform',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: CyberColors.textMuted,
-                      ),
+                            color: CyberColors.textMuted,
+                          ),
                     ),
                   ],
                 ),
@@ -160,6 +164,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
                 tooltip: 'Refresh',
               ),
+              _buildSettingsButton(),
             ],
           ),
           if (_availableProviders.isNotEmpty) ...[
@@ -172,13 +177,63 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
                 const SizedBox(width: 12),
                 ..._availableProviders.map((p) => Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ProviderBadge(provider: p),
-                )),
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ProviderBadge(provider: p),
+                    )),
               ],
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildSettingsButton() {
+    return Consumer(
+      builder: (context, ref, _) {
+        final authState = ref.watch(authProvider);
+        final isAuthenticated = authState.isAuthenticated;
+
+        return Stack(
+          children: [
+            IconButton(
+              onPressed: () => _openSettings(),
+              icon: Icon(
+                Icons.settings_outlined,
+                color: CyberColors.textSecondary,
+              ),
+              tooltip: 'Settings',
+            ),
+            // Status indicator dot
+            Positioned(
+              right: 8,
+              top: 8,
+              child: Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: isAuthenticated
+                      ? CyberColors.successGreen
+                      : CyberColors.warningAmber,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: CyberColors.midnightSurface,
+                    width: 2,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _openSettings() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const SettingsScreen(),
       ),
     );
   }
@@ -259,18 +314,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (_councils.isNotEmpty) ...[
-            _buildSectionHeader('Your Councils', Icons.groups_outlined, _councils.length),
+            _buildSectionHeader(
+                'Your Councils', Icons.groups_outlined, _councils.length),
             const SizedBox(height: 16),
             _buildCouncilGrid(),
             const SizedBox(height: 40),
           ],
           if (_debates.isNotEmpty) ...[
-            _buildSectionHeader('Recent Debates', Icons.forum_outlined, _debates.length),
+            _buildSectionHeader(
+                'Recent Debates', Icons.forum_outlined, _debates.length),
             const SizedBox(height: 16),
             ..._debates.map(_buildDebateCard),
           ],
-          if (_councils.isEmpty && _debates.isEmpty)
-            _buildEmptyState(),
+          if (_councils.isEmpty && _debates.isEmpty) _buildEmptyState(),
         ],
       ),
     );
@@ -308,8 +364,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _buildCouncilGrid() {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final crossAxisCount = constraints.maxWidth > 800 ? 3 : 
-                               constraints.maxWidth > 500 ? 2 : 1;
+        final crossAxisCount = constraints.maxWidth > 800
+            ? 3
+            : constraints.maxWidth > 500
+                ? 2
+                : 1;
         return GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
