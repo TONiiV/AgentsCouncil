@@ -6,7 +6,7 @@ from uuid import uuid4
 
 import pytest
 
-from app.models import Debate, DebateStatus
+from app.models import AgentConfig, CouncilConfig, Debate, DebateStatus, ProviderType, RoleType
 from app.storage import Storage
 
 
@@ -168,6 +168,97 @@ class TestStorageDebates:
         assert result is not None
         assert result.status == DebateStatus.ERROR
         assert result.error_message == "Test error message"
+
+
+class TestStorageOwnerFiltering:
+    """Tests for owner-based filtering."""
+
+    @pytest.mark.asyncio
+    async def test_list_councils_filters_owner(self, sample_council):
+        """Test listing councils filtered by owner_id."""
+        owner_id = "owner-123"
+        other_owner_id = "owner-456"
+
+        # Save council with owner_id
+        await Storage.save_council(sample_council, owner_id=owner_id)
+
+        # Create another council with different owner (with fresh agent IDs)
+        other_agents = [
+            AgentConfig(
+                id=uuid4(),
+                name=agent.name,
+                provider=agent.provider,
+                role=agent.role,
+            )
+            for agent in sample_council.agents
+        ]
+        other_council = CouncilConfig(
+            name="Other Council",
+            agents=other_agents,
+            max_rounds=3,
+            consensus_threshold=0.8,
+        )
+        await Storage.save_council(other_council, owner_id=other_owner_id)
+
+        # List councils for owner_id should only return the first council
+        councils = await Storage.list_councils(owner_id=owner_id)
+        assert len(councils) == 1
+        assert councils[0].id == sample_council.id
+
+    @pytest.mark.asyncio
+    async def test_list_councils_excludes_guest_rows_when_owner_set(self, sample_council):
+        """Test that guest rows are not returned when owner_id is set."""
+        owner_id = "owner-123"
+        guest_id = "guest-789"
+
+        # Save council with owner_id
+        await Storage.save_council(sample_council, owner_id=owner_id)
+
+        # Create guest council (no owner, just guest_id) with fresh agent IDs
+        guest_agents = [
+            AgentConfig(
+                id=uuid4(),
+                name=agent.name,
+                provider=agent.provider,
+                role=agent.role,
+            )
+            for agent in sample_council.agents
+        ]
+        guest_council = CouncilConfig(
+            name="Guest Council",
+            agents=guest_agents,
+            max_rounds=3,
+            consensus_threshold=0.8,
+        )
+        await Storage.save_council(guest_council, guest_id=guest_id)
+
+        # List councils for owner_id should not include the guest council
+        councils = await Storage.list_councils(owner_id=owner_id)
+        assert len(councils) == 1
+        assert councils[0].id == sample_council.id
+
+    @pytest.mark.asyncio
+    async def test_list_debates_filters_owner(self, sample_council, sample_debate):
+        """Test listing debates filtered by owner_id."""
+        owner_id = "owner-123"
+        other_owner_id = "owner-456"
+
+        # Save council and debate with owner_id
+        await Storage.save_council(sample_council, owner_id=owner_id)
+        await Storage.save_debate(sample_debate, owner_id=owner_id)
+
+        # Create another debate with different owner
+        other_debate = Debate(
+            council_id=sample_council.id,
+            topic="Other topic",
+            status=DebateStatus.PENDING,
+        )
+        await Storage.save_debate(other_debate, owner_id=other_owner_id)
+
+        # List debates for owner_id should only return the first debate
+        debates = await Storage.list_debates(owner_id=owner_id)
+        assert len(debates) == 1
+        assert debates[0].id == sample_debate.id
 
 
 class TestStorageClear:

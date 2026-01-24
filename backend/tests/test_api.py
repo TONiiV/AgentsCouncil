@@ -25,9 +25,13 @@ pytestmark = pytest.mark.asyncio
 
 @pytest_asyncio.fixture
 async def client():
-    """Create an async test client."""
+    """Create an async test client with guest auth header."""
     transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as c:
+    async with AsyncClient(
+        transport=transport,
+        base_url="http://test",
+        headers={"X-Guest-Id": "test-guest-fixture"},
+    ) as c:
         yield c
 
 

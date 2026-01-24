@@ -32,6 +32,12 @@ class Settings(BaseSettings):
     database_url: str = "sqlite+aiosqlite:///./agentscouncil.db"
     database_path: str = "data/agentscouncil.db"
 
+    # Supabase
+    supabase_url: str | None = None
+    supabase_service_role_key: str | None = None
+    supabase_jwt_audience: str = "authenticated"
+    supabase_database_url: str | None = None  # Direct PostgreSQL connection URL
+
     # Debate defaults
     default_max_rounds: int = 5
     default_consensus_threshold: float = 0.8  # 80% agreement

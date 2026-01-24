@@ -11,7 +11,9 @@ SCHEMA = [
         name TEXT NOT NULL,
         max_rounds INTEGER NOT NULL,
         consensus_threshold REAL NOT NULL,
-        created_at TEXT NOT NULL
+        created_at TEXT NOT NULL,
+        owner_id TEXT,
+        guest_id TEXT
     );
     """,
     """
@@ -38,6 +40,8 @@ SCHEMA = [
         error_message TEXT,
         created_at TEXT NOT NULL,
         completed_at TEXT,
+        owner_id TEXT,
+        guest_id TEXT,
         FOREIGN KEY (council_id) REFERENCES councils(id) ON DELETE CASCADE
     );
     """,
