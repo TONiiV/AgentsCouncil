@@ -427,6 +427,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         return CyberColors.anthropicOrange;
       case 'google':
       case 'gemini':
+      case 'google_oauth':
         return CyberColors.geminiBlue;
       case 'ollama':
         return CyberColors.ollamaYellow;
@@ -443,6 +444,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         return Icons.psychology;
       case 'google':
       case 'gemini':
+      case 'google_oauth':
         return Icons.diamond;
       case 'ollama':
         return Icons.memory;
@@ -461,6 +463,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         return 'Google';
       case 'gemini':
         return 'Gemini';
+      case 'google_oauth':
+        return 'Google (OAuth)';
       case 'ollama':
         return 'Ollama';
       default:
