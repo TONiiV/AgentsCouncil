@@ -5,8 +5,9 @@ AgentsCouncil Backend - WebSocket Routes
 import asyncio
 from uuid import UUID
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect, status
 
+from app.auth import AuthContext, _verify_jwt
 from app.models import DebateUpdate
 from app.storage import Storage
 
@@ -48,8 +49,31 @@ manager = ConnectionManager()
 
 
 @router.websocket("/ws/debates/{debate_id}")
-async def debate_websocket(websocket: WebSocket, debate_id: UUID):
-    """WebSocket endpoint for real-time debate updates."""
+async def debate_websocket(
+    websocket: WebSocket,
+    debate_id: UUID,
+    token: str | None = Query(default=None),
+    guest_id: str | None = Query(default=None),
+):
+    """WebSocket endpoint for real-time debate updates.
+
+    Requires either token or guest_id query parameter for authentication.
+    """
+    # Authenticate
+    auth: AuthContext | None = None
+    if token:
+        try:
+            claims = _verify_jwt(token)
+            auth = AuthContext(owner_id=claims.get("sub"))
+        except Exception:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+    elif guest_id:
+        auth = AuthContext(guest_id=guest_id)
+    else:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
     await manager.connect(websocket, debate_id)
 
     try:

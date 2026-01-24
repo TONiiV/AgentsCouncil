@@ -20,6 +20,7 @@ dependencies = [
     "yfinance>=0.2.0",
     "langchain-community>=0.2.0",
     "asyncpg>=0.29.0",
+    "PyJWT[crypto]>=2.8.0",
 ]
 
 [project.optional-dependencies]

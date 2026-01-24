@@ -10,6 +10,7 @@ from uuid import UUID
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 
 from app.api.websocket import broadcast_debate_update
+from app.auth import AuthContextDep
 from app.core.debate_engine import DebateEngine
 from app.models import Debate, DebateCreate, DebateStatus
 from app.storage import Storage
@@ -49,6 +50,7 @@ async def _run_debate_task(debate_id: UUID, engine: DebateEngine) -> None:
 async def start_debate(
     debate_data: DebateCreate,
     background_tasks: BackgroundTasks,
+    auth: AuthContextDep,
 ) -> Debate:
     """Start a new debate on a topic."""
     # Get the council configuration
@@ -76,13 +78,13 @@ async def start_debate(
 
 
 @router.get("", response_model=list[Debate])
-async def list_debates(council_id: UUID | None = None) -> list[Debate]:
+async def list_debates(auth: AuthContextDep, council_id: UUID | None = None) -> list[Debate]:
     """List all debates, optionally filtered by council."""
     return await Storage.list_debates(council_id)
 
 
 @router.get("/{debate_id}", response_model=Debate)
-async def get_debate(debate_id: UUID) -> Debate:
+async def get_debate(debate_id: UUID, auth: AuthContextDep) -> Debate:
     """Get a specific debate and its current state."""
     debate = await Storage.get_debate(debate_id)
     if not debate:
@@ -91,7 +93,7 @@ async def get_debate(debate_id: UUID) -> Debate:
 
 
 @router.get("/{debate_id}/summary")
-async def get_debate_summary(debate_id: UUID) -> dict:
+async def get_debate_summary(debate_id: UUID, auth: AuthContextDep) -> dict:
     """Get the summary and key points from a completed debate."""
     debate = await Storage.get_debate(debate_id)
     if not debate:
@@ -117,7 +119,7 @@ async def get_debate_summary(debate_id: UUID) -> dict:
 
 
 @router.post("/{debate_id}/cancel")
-async def cancel_debate(debate_id: UUID) -> dict:
+async def cancel_debate(debate_id: UUID, auth: AuthContextDep) -> dict:
     """Cancel a running debate."""
     debate = await Storage.get_debate(debate_id)
     if not debate:
@@ -133,7 +135,7 @@ async def cancel_debate(debate_id: UUID) -> dict:
 
 
 @router.delete("/{debate_id}")
-async def delete_debate(debate_id: UUID) -> dict:
+async def delete_debate(debate_id: UUID, auth: AuthContextDep) -> dict:
     """Delete a debate history."""
     debate = await Storage.get_debate(debate_id)
     if not debate:

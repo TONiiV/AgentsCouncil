@@ -6,6 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException
 
+from app.auth import AuthContextDep
 from app.models import (
     ROLE_PROMPTS,
     CouncilConfig,
@@ -64,7 +65,7 @@ async def list_roles() -> list[dict]:
 
 
 @router.post("", response_model=CouncilConfig)
-async def create_council(council_data: CouncilCreate) -> CouncilConfig:
+async def create_council(council_data: CouncilCreate, auth: AuthContextDep) -> CouncilConfig:
     """Create a new council configuration."""
     # Validate that all agent providers are available
     for agent in council_data.agents:
@@ -85,13 +86,13 @@ async def create_council(council_data: CouncilCreate) -> CouncilConfig:
 
 
 @router.get("", response_model=list[CouncilConfig])
-async def list_councils() -> list[CouncilConfig]:
+async def list_councils(auth: AuthContextDep) -> list[CouncilConfig]:
     """List all council configurations."""
     return await Storage.list_councils()
 
 
 @router.get("/{council_id}", response_model=CouncilConfig)
-async def get_council(council_id: UUID) -> CouncilConfig:
+async def get_council(council_id: UUID, auth: AuthContextDep) -> CouncilConfig:
     """Get a specific council configuration."""
     council = await Storage.get_council(council_id)
     if not council:
@@ -100,7 +101,9 @@ async def get_council(council_id: UUID) -> CouncilConfig:
 
 
 @router.put("/{council_id}", response_model=CouncilConfig)
-async def update_council(council_id: UUID, council_data: CouncilCreate) -> CouncilConfig:
+async def update_council(
+    council_id: UUID, council_data: CouncilCreate, auth: AuthContextDep
+) -> CouncilConfig:
     """Update an existing council configuration."""
     existing = await Storage.get_council(council_id)
     if not existing:
@@ -127,7 +130,7 @@ async def update_council(council_id: UUID, council_data: CouncilCreate) -> Counc
 
 
 @router.delete("/{council_id}")
-async def delete_council(council_id: UUID) -> dict:
+async def delete_council(council_id: UUID, auth: AuthContextDep) -> dict:
     """Delete a council configuration."""
     if await Storage.delete_council(council_id):
         return {"status": "deleted"}
