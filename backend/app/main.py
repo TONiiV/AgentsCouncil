@@ -13,6 +13,7 @@ from app.config import get_settings
 from app.oauth_server import create_oauth_server
 from app.providers import ProviderRegistry
 from app.storage import Storage
+from app.storage_supabase import SupabaseStorage
 
 
 @asynccontextmanager
@@ -22,8 +23,38 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     app.state.oauth_server = create_oauth_server()
     ProviderRegistry.initialize()
-    Storage.configure(Path(settings.database_path))
-    await Storage.initialize()
+
+    # Initialize storage based on configuration
+    if settings.supabase_url and settings.supabase_service_role_key:
+        # Use Supabase PostgreSQL storage
+        if settings.supabase_database_url:
+            # Use explicit database URL if provided
+            database_url = settings.supabase_database_url
+        else:
+            # Build database URL from Supabase project URL
+            # Extract project ref from URL (e.g., https://xxxx.supabase.co -> xxxx)
+            import re
+
+            match = re.match(r"https://([^.]+)\.supabase\.co", settings.supabase_url)
+            if match:
+                project_ref = match.group(1)
+                database_url = f"postgresql://postgres:{settings.supabase_service_role_key}@db.{project_ref}.supabase.co:5432/postgres"
+            else:
+                raise ValueError(
+                    "Cannot construct database URL from supabase_url. "
+                    "Please provide SUPABASE_DATABASE_URL explicitly."
+                )
+
+        await SupabaseStorage.configure(database_url)
+        await SupabaseStorage.initialize()
+        app.state.storage = SupabaseStorage
+        print("📦 Using Supabase PostgreSQL storage")
+    else:
+        # Use SQLite storage
+        Storage.configure(Path(settings.database_path))
+        await Storage.initialize()
+        app.state.storage = Storage
+        print("📦 Using SQLite storage")
 
     available = ProviderRegistry.get_available()
     print("🤖 AgentsCouncil Backend starting...")
@@ -36,6 +67,8 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     await app.state.oauth_server.close()
+    if hasattr(app.state, "storage") and app.state.storage is SupabaseStorage:
+        await SupabaseStorage.close()
     print("👋 AgentsCouncil Backend shutting down...")
 
 

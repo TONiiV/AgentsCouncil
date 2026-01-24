@@ -6,7 +6,7 @@ from uuid import uuid4
 
 import pytest
 
-from app.models import CouncilConfig, Debate, DebateStatus
+from app.models import AgentConfig, CouncilConfig, Debate, DebateStatus, ProviderType, RoleType
 from app.storage import Storage
 
 
@@ -182,10 +182,19 @@ class TestStorageOwnerFiltering:
         # Save council with owner_id
         await Storage.save_council(sample_council, owner_id=owner_id)
 
-        # Create another council with different owner
+        # Create another council with different owner (with fresh agent IDs)
+        other_agents = [
+            AgentConfig(
+                id=uuid4(),
+                name=agent.name,
+                provider=agent.provider,
+                role=agent.role,
+            )
+            for agent in sample_council.agents
+        ]
         other_council = CouncilConfig(
             name="Other Council",
-            agents=sample_council.agents,
+            agents=other_agents,
             max_rounds=3,
             consensus_threshold=0.8,
         )
@@ -205,10 +214,19 @@ class TestStorageOwnerFiltering:
         # Save council with owner_id
         await Storage.save_council(sample_council, owner_id=owner_id)
 
-        # Create guest council (no owner, just guest_id)
+        # Create guest council (no owner, just guest_id) with fresh agent IDs
+        guest_agents = [
+            AgentConfig(
+                id=uuid4(),
+                name=agent.name,
+                provider=agent.provider,
+                role=agent.role,
+            )
+            for agent in sample_council.agents
+        ]
         guest_council = CouncilConfig(
             name="Guest Council",
-            agents=sample_council.agents,
+            agents=guest_agents,
             max_rounds=3,
             consensus_threshold=0.8,
         )

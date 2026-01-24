@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     supabase_url: str | None = None
     supabase_service_role_key: str | None = None
     supabase_jwt_audience: str = "authenticated"
+    supabase_database_url: str | None = None  # Direct PostgreSQL connection URL
 
     # Debate defaults
     default_max_rounds: int = 5

@@ -65,18 +65,25 @@ class Storage:
             await connection.commit()
 
     @classmethod
-    async def save_council(cls, council: CouncilConfig) -> CouncilConfig:
+    async def save_council(
+        cls,
+        council: CouncilConfig,
+        owner_id: str | None = None,
+        guest_id: str | None = None,
+    ) -> CouncilConfig:
         await cls._ensure_initialized()
         async with aiosqlite.connect(cls._db_path) as connection:
             await connection.execute(
                 """
-                INSERT INTO councils (id, name, max_rounds, consensus_threshold, created_at)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO councils (id, name, max_rounds, consensus_threshold, created_at, owner_id, guest_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     name = excluded.name,
                     max_rounds = excluded.max_rounds,
                     consensus_threshold = excluded.consensus_threshold,
-                    created_at = excluded.created_at
+                    created_at = excluded.created_at,
+                    owner_id = excluded.owner_id,
+                    guest_id = excluded.guest_id
                 """,
                 (
                     str(council.id),
@@ -84,6 +91,8 @@ class Storage:
                     council.max_rounds,
                     council.consensus_threshold,
                     council.created_at.isoformat(),
+                    owner_id,
+                    guest_id,
                 ),
             )
 
@@ -166,11 +175,28 @@ class Storage:
             )
 
     @classmethod
-    async def list_councils(cls) -> list[CouncilConfig]:
+    async def list_councils(
+        cls,
+        owner_id: str | None = None,
+        guest_id: str | None = None,
+    ) -> list[CouncilConfig]:
         await cls._ensure_initialized()
         async with aiosqlite.connect(cls._db_path) as connection:
             connection.row_factory = aiosqlite.Row
-            cursor = await connection.execute("SELECT * FROM councils ORDER BY created_at ASC")
+
+            # Build query based on filtering
+            if owner_id is not None:
+                cursor = await connection.execute(
+                    "SELECT * FROM councils WHERE owner_id = ? ORDER BY created_at ASC",
+                    (owner_id,),
+                )
+            elif guest_id is not None:
+                cursor = await connection.execute(
+                    "SELECT * FROM councils WHERE guest_id = ? ORDER BY created_at ASC",
+                    (guest_id,),
+                )
+            else:
+                cursor = await connection.execute("SELECT * FROM councils ORDER BY created_at ASC")
             council_rows = await cursor.fetchall()
 
             councils: list[CouncilConfig] = []
@@ -221,7 +247,12 @@ class Storage:
             return cursor.rowcount > 0
 
     @classmethod
-    async def save_debate(cls, debate: Debate) -> Debate:
+    async def save_debate(
+        cls,
+        debate: Debate,
+        owner_id: str | None = None,
+        guest_id: str | None = None,
+    ) -> Debate:
         await cls._ensure_initialized()
         async with aiosqlite.connect(cls._db_path) as connection:
             await connection.execute(
@@ -235,9 +266,11 @@ class Storage:
                     summary,
                     error_message,
                     created_at,
-                    completed_at
+                    completed_at,
+                    owner_id,
+                    guest_id
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     council_id = excluded.council_id,
                     topic = excluded.topic,
@@ -246,7 +279,9 @@ class Storage:
                     summary = excluded.summary,
                     error_message = excluded.error_message,
                     created_at = excluded.created_at,
-                    completed_at = excluded.completed_at
+                    completed_at = excluded.completed_at,
+                    owner_id = excluded.owner_id,
+                    guest_id = excluded.guest_id
                 """,
                 (
                     str(debate.id),
@@ -258,6 +293,8 @@ class Storage:
                     debate.error_message,
                     debate.created_at.isoformat(),
                     debate.completed_at.isoformat() if debate.completed_at else None,
+                    owner_id,
+                    guest_id,
                 ),
             )
 
@@ -501,15 +538,34 @@ class Storage:
             return cursor.rowcount > 0
 
     @classmethod
-    async def list_debates(cls, council_id: UUID | None = None) -> list[Debate]:
+    async def list_debates(
+        cls,
+        council_id: UUID | None = None,
+        owner_id: str | None = None,
+        guest_id: str | None = None,
+    ) -> list[Debate]:
         await cls._ensure_initialized()
         async with aiosqlite.connect(cls._db_path) as connection:
             connection.row_factory = aiosqlite.Row
+
+            # Build query with filters
+            conditions = []
+            params: list[str] = []
+
             if council_id:
-                cursor = await connection.execute(
-                    "SELECT * FROM debates WHERE council_id = ? ORDER BY created_at ASC",
-                    (str(council_id),),
-                )
+                conditions.append("council_id = ?")
+                params.append(str(council_id))
+
+            if owner_id is not None:
+                conditions.append("owner_id = ?")
+                params.append(owner_id)
+            elif guest_id is not None:
+                conditions.append("guest_id = ?")
+                params.append(guest_id)
+
+            if conditions:
+                query = f"SELECT * FROM debates WHERE {' AND '.join(conditions)} ORDER BY created_at ASC"
+                cursor = await connection.execute(query, tuple(params))
             else:
                 cursor = await connection.execute("SELECT * FROM debates ORDER BY created_at ASC")
             debate_rows = await cursor.fetchall()
