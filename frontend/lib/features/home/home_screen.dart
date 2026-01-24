@@ -4,6 +4,7 @@ import '../../app/theme.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
 import '../../shared/shared.dart';
+import '../../providers/auth_provider.dart';
 import '../council_setup/council_setup_screen.dart';
 import '../debate/debate_screen.dart';
 import '../council/council_details_screen.dart';
@@ -36,7 +37,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final isHealthy = await _api.checkHealth();
       if (!isHealthy) {
         setState(() {
-          _error = 'Backend server is not running.\n\nStart it with:\ncd backend && uvicorn app.main:app --reload';
+          _error =
+              'Backend server is not running.\n\nStart it with:\ncd backend && uvicorn app.main:app --reload';
           _isLoading = false;
         });
         return;
@@ -136,9 +138,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   children: [
                     GlowText(
                       'AgentsCouncil',
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style:
+                          Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
                       glowColor: CyberColors.neonCyan,
                       blurRadius: 6,
                     ),
@@ -146,8 +149,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     Text(
                       'AI-Powered Multi-Agent Debate Platform',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: CyberColors.textMuted,
-                      ),
+                            color: CyberColors.textMuted,
+                          ),
                     ),
                   ],
                 ),
@@ -160,6 +163,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
                 tooltip: 'Refresh',
               ),
+              const SizedBox(width: 8),
+              _buildUserMenu(),
             ],
           ),
           if (_availableProviders.isNotEmpty) ...[
@@ -172,14 +177,100 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
                 const SizedBox(width: 12),
                 ..._availableProviders.map((p) => Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ProviderBadge(provider: p),
-                )),
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ProviderBadge(provider: p),
+                    )),
               ],
             ),
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildUserMenu() {
+    final user = ref.watch(currentUserProvider);
+
+    return PopupMenuButton<String>(
+      tooltip: 'User Menu',
+      icon: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          gradient: CyberGradients.accent,
+          shape: BoxShape.circle,
+          boxShadow: CyberGlow.soft(CyberColors.holoPurple),
+        ),
+        child: Icon(
+          Icons.person,
+          color: Colors.white,
+          size: 20,
+        ),
+      ),
+      color: CyberColors.midnightCard,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: CyberColors.midnightBorder),
+      ),
+      itemBuilder: (context) => [
+        PopupMenuItem<String>(
+          enabled: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                user?.email ?? 'User',
+                style: TextStyle(
+                  color: CyberColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                user?.id ?? '',
+                style: TextStyle(
+                  color: CyberColors.textMuted,
+                  fontSize: 11,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem<String>(
+          value: 'signout',
+          child: Row(
+            children: [
+              Icon(Icons.logout, size: 18, color: CyberColors.errorRed),
+              const SizedBox(width: 12),
+              Text(
+                'Sign Out',
+                style: TextStyle(color: CyberColors.errorRed),
+              ),
+            ],
+          ),
+        ),
+      ],
+      onSelected: (value) async {
+        if (value == 'signout') {
+          final signOut = ref.read(signOutProvider);
+          try {
+            await signOut();
+            // Navigation will be handled by AuthGate listening to auth state
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Failed to sign out: $e'),
+                  backgroundColor: CyberColors.errorRed,
+                ),
+              );
+            }
+          }
+        }
+      },
     );
   }
 
@@ -259,18 +350,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (_councils.isNotEmpty) ...[
-            _buildSectionHeader('Your Councils', Icons.groups_outlined, _councils.length),
+            _buildSectionHeader(
+                'Your Councils', Icons.groups_outlined, _councils.length),
             const SizedBox(height: 16),
             _buildCouncilGrid(),
             const SizedBox(height: 40),
           ],
           if (_debates.isNotEmpty) ...[
-            _buildSectionHeader('Recent Debates', Icons.forum_outlined, _debates.length),
+            _buildSectionHeader(
+                'Recent Debates', Icons.forum_outlined, _debates.length),
             const SizedBox(height: 16),
             ..._debates.map(_buildDebateCard),
           ],
-          if (_councils.isEmpty && _debates.isEmpty)
-            _buildEmptyState(),
+          if (_councils.isEmpty && _debates.isEmpty) _buildEmptyState(),
         ],
       ),
     );
@@ -308,8 +400,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _buildCouncilGrid() {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final crossAxisCount = constraints.maxWidth > 800 ? 3 : 
-                               constraints.maxWidth > 500 ? 2 : 1;
+        final crossAxisCount = constraints.maxWidth > 800
+            ? 3
+            : constraints.maxWidth > 500
+                ? 2
+                : 1;
         return GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
