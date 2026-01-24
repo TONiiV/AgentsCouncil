@@ -27,9 +27,10 @@ ALTER TABLE councils ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for councils
 -- Owners can see their own councils
+-- Note: Guest access is handled by backend filtering (service role bypasses RLS)
 CREATE POLICY councils_select_owner ON councils
     FOR SELECT
-    USING (owner_id = auth.uid() OR (owner_id IS NULL AND guest_id IS NOT NULL));
+    USING (owner_id = auth.uid());
 
 -- Owners can insert their own councils
 CREATE POLICY councils_insert_owner ON councils
@@ -74,7 +75,7 @@ CREATE POLICY council_agents_select ON council_agents
     USING (EXISTS (
         SELECT 1 FROM councils
         WHERE councils.id = council_agents.council_id
-        AND (councils.owner_id = auth.uid() OR (councils.owner_id IS NULL AND councils.guest_id IS NOT NULL))
+        AND councils.owner_id = auth.uid()
     ));
 
 CREATE POLICY council_agents_insert ON council_agents
@@ -128,9 +129,10 @@ CREATE INDEX IF NOT EXISTS idx_debates_council_id ON debates(council_id);
 ALTER TABLE debates ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for debates
+-- Note: Guest access is handled by backend filtering (service role bypasses RLS)
 CREATE POLICY debates_select_owner ON debates
     FOR SELECT
-    USING (owner_id = auth.uid() OR (owner_id IS NULL AND guest_id IS NOT NULL));
+    USING (owner_id = auth.uid());
 
 CREATE POLICY debates_insert_owner ON debates
     FOR INSERT
@@ -172,7 +174,7 @@ CREATE POLICY debate_rounds_select ON debate_rounds
     USING (EXISTS (
         SELECT 1 FROM debates
         WHERE debates.id = debate_rounds.debate_id
-        AND (debates.owner_id = auth.uid() OR (debates.owner_id IS NULL AND debates.guest_id IS NOT NULL))
+        AND debates.owner_id = auth.uid()
     ));
 
 CREATE POLICY debate_rounds_insert ON debate_rounds
@@ -229,7 +231,7 @@ CREATE POLICY debate_responses_select ON debate_responses
     USING (EXISTS (
         SELECT 1 FROM debates
         WHERE debates.id = debate_responses.debate_id
-        AND (debates.owner_id = auth.uid() OR (debates.owner_id IS NULL AND debates.guest_id IS NOT NULL))
+        AND debates.owner_id = auth.uid()
     ));
 
 CREATE POLICY debate_responses_insert ON debate_responses
@@ -280,7 +282,7 @@ CREATE POLICY debate_votes_select ON debate_votes
     USING (EXISTS (
         SELECT 1 FROM debates
         WHERE debates.id = debate_votes.debate_id
-        AND (debates.owner_id = auth.uid() OR (debates.owner_id IS NULL AND debates.guest_id IS NOT NULL))
+        AND debates.owner_id = auth.uid()
     ));
 
 CREATE POLICY debate_votes_insert ON debate_votes
@@ -331,7 +333,7 @@ CREATE POLICY debate_points_select ON debate_points
     USING (EXISTS (
         SELECT 1 FROM debates
         WHERE debates.id = debate_points.debate_id
-        AND (debates.owner_id = auth.uid() OR (debates.owner_id IS NULL AND debates.guest_id IS NOT NULL))
+        AND debates.owner_id = auth.uid()
     ));
 
 CREATE POLICY debate_points_insert ON debate_points
