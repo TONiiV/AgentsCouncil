@@ -61,7 +61,13 @@ class ProviderRegistry:
             )
 
         # Enable Google OAuth provider if stored accounts exist
-        oauth_store = OAuthAccountStore(Path.home() / ".agentscouncil" / "oauth_accounts.json")
+        # Use the same path as oauth_server.py (defaults to data/oauth_accounts.json)
+        import os
+
+        oauth_accounts_path = Path(
+            os.getenv("GOOGLE_OAUTH_ACCOUNTS_PATH", "data/oauth_accounts.json")
+        )
+        oauth_store = OAuthAccountStore(oauth_accounts_path)
         if oauth_store.has_accounts():
 
             async def _token_getter() -> str:

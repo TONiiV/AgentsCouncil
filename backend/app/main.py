@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import councils_router, debates_router, providers_router, websocket_router
 from app.config import get_settings
 from app.oauth_server import create_oauth_server
-from app.providers import ProviderRegistry
+from app.providers import ProviderRegistry, set_oauth_server_instance
 from app.storage import Storage
 
 
@@ -21,6 +21,11 @@ async def lifespan(app: FastAPI):
     # Startup
     settings = get_settings()
     app.state.oauth_server = create_oauth_server()
+
+    # Set OAuth server instance for provider token refresh
+    set_oauth_server_instance(app.state.oauth_server)
+
+    # Initialize providers (must be after OAuth server is set)
     ProviderRegistry.initialize()
     Storage.configure(Path(settings.database_path))
     await Storage.initialize()

@@ -15,8 +15,77 @@ from app.providers import ProviderRegistry
 router = APIRouter(tags=["providers"])
 
 # Set up Jinja2 templates for OAuth callback HTML
-_templates_dir = Path(__file__).parent.parent.parent / "templates"
+_templates_dir = Path(__file__).resolve().parent.parent.parent / "templates"
 templates = Jinja2Templates(directory=str(_templates_dir))
+
+
+# === Google OAuth endpoints (must be before /{provider}/models to avoid route conflicts) ===
+
+
+@router.get("/google-oauth/login")
+async def google_oauth_login(server: OAuthServer = Depends(get_oauth_server)):
+    """Get the Google OAuth login URL."""
+    return {"url": server.get_login_url()}
+
+
+@router.get("/google-oauth/callback", response_class=HTMLResponse)
+async def google_oauth_callback(
+    request: Request,
+    code: str,
+    state: str,
+    server: OAuthServer = Depends(get_oauth_server),
+):
+    """OAuth callback - always returns HTML since this is opened in a browser."""
+    try:
+        account = await server.handle_callback(code, state)
+        return templates.TemplateResponse(
+            request,
+            "oauth_callback.html",
+            {"email": account.get("email", ""), "error": None},
+        )
+    except ValueError as exc:
+        return templates.TemplateResponse(
+            request,
+            "oauth_callback.html",
+            {"error": str(exc)},
+        )
+    except Exception as exc:
+        return templates.TemplateResponse(
+            request,
+            "oauth_callback.html",
+            {"error": f"Unexpected error: {exc}"},
+        )
+
+
+@router.get("/google-oauth/accounts")
+async def list_oauth_accounts(server: OAuthServer = Depends(get_oauth_server)):
+    """List OAuth accounts (emails only, no tokens exposed)."""
+    accounts = server.account_store.load_accounts()
+    return {
+        "accounts": [
+            {"email": acc.get("email"), "project_id": acc.get("project_id")} for acc in accounts
+        ]
+    }
+
+
+@router.delete("/google-oauth/accounts/{email}")
+async def delete_oauth_account(
+    email: str,
+    server: OAuthServer = Depends(get_oauth_server),
+):
+    """Remove an OAuth account."""
+    accounts = server.account_store.load_accounts()
+    original_count = len(accounts)
+    accounts = [acc for acc in accounts if acc.get("email") != email]
+
+    if len(accounts) == original_count:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    server.account_store.save_accounts(accounts)
+    return {"status": "deleted", "email": email}
+
+
+# === Generic provider endpoints ===
 
 
 @router.get("/{provider}/models")
@@ -51,68 +120,3 @@ async def list_provider_models(provider: ProviderType):
             status_code=500,
             detail=f"Failed to fetch models: {e}",
         ) from e
-
-
-@router.get("/google-oauth/login")
-async def google_oauth_login(server: OAuthServer = Depends(get_oauth_server)):
-    return {"url": server.get_login_url()}
-
-
-@router.get("/google-oauth/callback")
-async def google_oauth_callback(
-    request: Request,
-    code: str,
-    state: str,
-    server: OAuthServer = Depends(get_oauth_server),
-):
-    accept = request.headers.get("accept", "")
-
-    try:
-        account = await server.handle_callback(code, state)
-    except ValueError as exc:
-        if "text/html" in accept:
-            return templates.TemplateResponse(
-                request,
-                "oauth_callback.html",
-                {"error": str(exc)},
-            )
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    # Return HTML for browser requests (popup flow)
-    if "text/html" in accept:
-        return templates.TemplateResponse(
-            request,
-            "oauth_callback.html",
-            {"email": account.get("email", ""), "error": None},
-        )
-
-    # Return JSON for API requests (backward compatible)
-    return {"status": "stored", "account": account}
-
-
-@router.get("/google-oauth/accounts")
-async def list_oauth_accounts(server: OAuthServer = Depends(get_oauth_server)):
-    """List OAuth accounts (emails only, no tokens exposed)."""
-    accounts = server.account_store.load_accounts()
-    return {
-        "accounts": [
-            {"email": acc.get("email"), "project_id": acc.get("project_id")} for acc in accounts
-        ]
-    }
-
-
-@router.delete("/google-oauth/accounts/{email}")
-async def delete_oauth_account(
-    email: str,
-    server: OAuthServer = Depends(get_oauth_server),
-):
-    """Remove an OAuth account."""
-    accounts = server.account_store.load_accounts()
-    original_count = len(accounts)
-    accounts = [acc for acc in accounts if acc.get("email") != email]
-
-    if len(accounts) == original_count:
-        raise HTTPException(status_code=404, detail="Account not found")
-
-    server.account_store.save_accounts(accounts)
-    return {"status": "deleted", "email": email}
